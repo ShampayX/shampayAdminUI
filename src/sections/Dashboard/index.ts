@@ -1,0 +1,10 @@
+export { default as Aeps } from './AEPS';
+export { default as Aadhaarpay } from './AadharPay';
+export { default as All } from './Alldata';
+export { default as Billpayment } from './BillPayment';
+export { default as Dmt1 } from './DMT1';
+export { default as Dmt2 } from './DMT2';
+export { default as Indonepal } from './IndoNepal';
+export { default as Moneytransfer } from './Moneytransfer';
+export { default as Recharge } from './Recharge';
+export { default as Matm } from './Matm';

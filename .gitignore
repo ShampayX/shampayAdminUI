@@ -1,0 +1,9 @@
+node_modules
+build
+.env.development
+.env.production
+.env.production.neosprint
+buid
+
+# local-only session handoff notes - never commit or push
+SESSION-NOTES.md

@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96" role="img" aria-label="Shampay">
+  <defs>
+    <linearGradient id="shampayS" x1="30%" y1="0%" x2="70%" y2="100%">
+      <stop offset="0%" stop-color="#F7B32B" />
+      <stop offset="45%" stop-color="#EF8B1F" />
+      <stop offset="100%" stop-color="#4B2A8C" />
+    </linearGradient>
+    <linearGradient id="shampayCoin" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FBD35B" />
+      <stop offset="100%" stop-color="#E9A81C" />
+    </linearGradient>
+  </defs>
+
+  <!-- ribbon S -->
+  <path
+    d="M64 25 C64 14, 26 13, 26 32 C26 49, 64 45, 64 63 C64 83, 26 81, 26 69"
+    fill="none"
+    stroke="url(#shampayS)"
+    stroke-width="14"
+    stroke-linecap="round"
+  />
+
+  <!-- coin stack -->
+  <g transform="translate(72 34)">
+    <ellipse cx="0" cy="7" rx="11" ry="4.2" fill="#C98B14" />
+    <ellipse cx="0" cy="4" rx="11" ry="4.2" fill="url(#shampayCoin)" />
+    <ellipse cx="0" cy="0.5" rx="11" ry="4.2" fill="url(#shampayCoin)" />
+    <ellipse cx="0" cy="0.5" rx="7.5" ry="2.4" fill="#FCE29A" opacity="0.75" />
+  </g>
+</svg>

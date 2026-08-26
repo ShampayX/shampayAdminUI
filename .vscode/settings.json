@@ -1,0 +1,27 @@
+{
+  // Use the TypeScript the project actually builds with (4.9.5) instead of the
+  // newer one bundled with VS Code - otherwise the editor reports deprecation
+  // errors on tsconfig.json that the real compiler does not.
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "workbench.colorCustomizations": {
+    "activityBar.activeBackground": "#ff636375",
+    "activityBar.background": "#ff636375",
+    "activityBar.foreground": "#15202b",
+    "activityBar.inactiveForeground": "#15202b99",
+    "activityBarBadge.background": "#00ff00",
+    "activityBarBadge.foreground": "#15202b",
+    "commandCenter.border": "#e7e7e799",
+    "sash.hoverBorder": "#ff636375",
+    "statusBar.background": "#ff303075",
+    "statusBar.foreground": "#e7e7e7",
+    "statusBarItem.hoverBackground": "#ff636375",
+    "statusBarItem.remoteBackground": "#ff303075",
+    "statusBarItem.remoteForeground": "#e7e7e7",
+    "titleBar.activeBackground": "#ff303075",
+    "titleBar.activeForeground": "#e7e7e7",
+    "titleBar.inactiveBackground": "#ff303099",
+    "titleBar.inactiveForeground": "#e7e7e799"
+  },
+  "peacock.color": "#ff303075"
+}
