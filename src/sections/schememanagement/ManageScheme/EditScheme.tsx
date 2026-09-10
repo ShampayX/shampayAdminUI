@@ -23,6 +23,7 @@ import EditPayoutPayments from "../editScheme/EditPayoutPayments";
 import EditADMT from "../editScheme/EditADMT";
 import EditPBPS from "../editScheme/EditPBPS";
 import EditPayIn from "../editScheme/editPAYIN";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 // ----------------------------------------------------------------------
 
 export const SchemeDetail = React.createContext({});
@@ -61,17 +62,16 @@ export default function EditScheme(props: any) {
   const getCategory = () => {
     const token = localStorage.getItem("token");
     Api(`category/get_CategoryList`, "GET", "", token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          const sortedData = Response.data.data
-            .sort((a: any, b: any) => a.order - b.order)
-            .filter(
-              (item: any) => item.category_name.toLowerCase() !== "bill payment"
-            );
-          getLabel(sortedData);
-          setCurrentTab(Response.data.data[0].category_name);
-        } else {
-        }
+      if (isOk(Response)) {
+        const sortedData = Response.data.data
+          .sort((a: any, b: any) => a.order - b.order)
+          .filter(
+            (item: any) => item.category_name.toLowerCase() !== "bill payment"
+          );
+        getLabel(sortedData);
+        setCurrentTab(Response.data.data[0].category_name);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };

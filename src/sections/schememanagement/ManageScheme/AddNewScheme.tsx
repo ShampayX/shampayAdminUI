@@ -27,6 +27,7 @@ import {
 import PayoutTransfer from "../addScheme/PayoutTransfer";
 import ADMT from "../addScheme/ADMT";
 import PayIn from "../addScheme/PayIn";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 // ----------------------------------------------------------------------
 
@@ -62,64 +63,64 @@ export default function AddNewScheme() {
   const getCategory = () => {
     let token = localStorage.getItem("token");
     Api(`category/get_CategoryList`, "GET", token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setCategoryLabel(
-            Response.data.data.filter(
-              (item: any) => item.category_name.toLowerCase() !== "bill payment"
-            )
-          );
-          Response.data.data?.filter((item: any) => {
-            if (item.category_name.toLowerCase() == "vendor payments") {
-              Api(`product/get_ProductList/${item._id}`, "GET", "", token).then(
-                (Response: any) => {
-                  if (Response?.status == 200) {
-                    if (Response.data.code == 200) {
-                      Response.data.data.map((element: any) =>
-                        VendorPaymentSlot(element)
-                      );
+      if (isOk(Response)) {
+        setCategoryLabel(
+          Response.data.data.filter(
+            (item: any) => item.category_name.toLowerCase() !== "bill payment"
+          )
+        );
+        Response.data.data?.filter((item: any) => {
+          if (item.category_name.toLowerCase() == "vendor payments") {
+            Api(`product/get_ProductList/${item._id}`, "GET", "", token).then(
+              (Response: any) => {
+                if (Response?.status == 200) {
+                  if (Response.data.code == 200) {
+                    Response.data.data.map((element: any) =>
+                      VendorPaymentSlot(element)
+                    );
+                  }
+                }
+              }
+            );
+          }
+          if (item.category_name.toLowerCase() == "payout payments") {
+            Api(`product/get_ProductList/${item._id}`, "GET", "", token).then(
+              (Response: any) => {
+                if (Response?.status == 200) {
+                  if (Response.data.code == 200) {
+                    const product = Response.data.data.filter(
+                      (item: any) =>
+                        item.productName?.toUpperCase() !== "UPI PAYOUT"
+                    );
+                    product.map((element: any) => VendorPayoutSlot(element));
+                  }
+                }
+              }
+            );
+          }
+          if (item.category_name.toLowerCase() == "payout payments") {
+            Api(`product/get_ProductList/${item._id}`, "GET", "", token).then(
+              (Response: any) => {
+                if (Response?.status == 200) {
+                  if (Response.data.code == 200) {
+                    const upiProduct = Response.data.data.find(
+                      (item: any) =>
+                        item.productName?.toUpperCase() === "UPI PAYOUT"
+                    );
+                    //  upiProduct.map((element: any) => VendorPayoutUpiSlot(element));
+                    if (upiProduct) {
+                      VendorPayoutUpiSlot(upiProduct);
                     }
                   }
                 }
-              );
-            }
-            if (item.category_name.toLowerCase() == "payout payments") {
-              Api(`product/get_ProductList/${item._id}`, "GET", "", token).then(
-                (Response: any) => {
-                  if (Response?.status == 200) {
-                    if (Response.data.code == 200) {
-                      const product = Response.data.data.filter(
-                        (item: any) =>
-                          item.productName?.toUpperCase() !== "UPI PAYOUT"
-                      );
-                      product.map((element: any) => VendorPayoutSlot(element));
-                    }
-                  }
-                }
-              );
-            }
-            if (item.category_name.toLowerCase() == "payout payments") {
-              Api(`product/get_ProductList/${item._id}`, "GET", "", token).then(
-                (Response: any) => {
-                  if (Response?.status == 200) {
-                    if (Response.data.code == 200) {
-                      const upiProduct = Response.data.data.find(
-                        (item: any) =>
-                          item.productName?.toUpperCase() === "UPI PAYOUT"
-                      );
-                      //  upiProduct.map((element: any) => VendorPayoutUpiSlot(element));
-                      if (upiProduct) {
-                        VendorPayoutUpiSlot(upiProduct);
-                      }
-                    }
-                  }
-                }
-              );
-            }
-          });
-          setCurrentTab(Response.data.data[0].category_name);
-          localStorage.setItem("cateId", Response.data.data[0]._id);
-        }
+              }
+            );
+          }
+        });
+        setCurrentTab(Response.data.data[0].category_name);
+        localStorage.setItem("cateId", Response.data.data[0]._id);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -128,42 +129,7 @@ export default function AddNewScheme() {
     let token = localStorage.getItem("token");
     Api(`vendor/vendor_payment_slots/${val._id}`, "GET", "", token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            let arr: any = [];
-            Response.data.data[0].slots.map((item: any) => {
-              arr.push({
-                productId: val._id,
-                _id: item._id,
-                minSlab: item.minSlab,
-                maxSlab: item.maxSlab,
-                chargeType: "",
-                agentCharge: "",
-                apiUserCharge: "",
-                commissionType: "",
-                distributorCommission: "",
-                masterDistributorCommission: "",
-              });
-            });
-            setVendorPaymentSlotData((prevState: any) => [
-              ...prevState,
-              {
-                productId: val._id,
-                productName: val.productName,
-                slots: arr,
-              },
-            ]);
-          }
-        }
-      }
-    );
-  };
-
-  const VendorPayoutSlot = (val: any) => {
-    let token = localStorage.getItem("token");
-    Api(`vendor/payoutPaymentSlots`, "GET", "", token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
+        if (isOk(Response)) {
           let arr: any = [];
           Response.data.data[0].slots.map((item: any) => {
             arr.push({
@@ -179,7 +145,7 @@ export default function AddNewScheme() {
               masterDistributorCommission: "",
             });
           });
-          setPayoutSlotData((prevState: any) => [
+          setVendorPaymentSlotData((prevState: any) => [
             ...prevState,
             {
               productId: val._id,
@@ -187,7 +153,42 @@ export default function AddNewScheme() {
               slots: arr,
             },
           ]);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
+      }
+    );
+  };
+
+  const VendorPayoutSlot = (val: any) => {
+    let token = localStorage.getItem("token");
+    Api(`vendor/payoutPaymentSlots`, "GET", "", token).then((Response: any) => {
+      if (isOk(Response)) {
+        let arr: any = [];
+        Response.data.data[0].slots.map((item: any) => {
+          arr.push({
+            productId: val._id,
+            _id: item._id,
+            minSlab: item.minSlab,
+            maxSlab: item.maxSlab,
+            chargeType: "",
+            agentCharge: "",
+            apiUserCharge: "",
+            commissionType: "",
+            distributorCommission: "",
+            masterDistributorCommission: "",
+          });
+        });
+        setPayoutSlotData((prevState: any) => [
+          ...prevState,
+          {
+            productId: val._id,
+            productName: val.productName,
+            slots: arr,
+          },
+        ]);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -238,17 +239,15 @@ export default function AddNewScheme() {
       schemeDescription: val1,
     };
     Api(`scheme/create_scheme`, "POST", body, token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          enqueueSnackbar("Scheme Create Successfull !");
-          setSchemeName({
-            schemeName: Response.data.data.schemeID,
-            schemeDesc: Response.data.data.schemeDescription,
-            _id: Response.data.data._id,
-          });
-        } else {
-          enqueueSnackbar(Response.data.message);
-        }
+      if (isOk(Response)) {
+        enqueueSnackbar("Scheme Create Successfull !");
+        setSchemeName({
+          schemeName: Response.data.data.schemeID,
+          schemeDesc: Response.data.data.schemeDescription,
+          _id: Response.data.data._id,
+        });
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };

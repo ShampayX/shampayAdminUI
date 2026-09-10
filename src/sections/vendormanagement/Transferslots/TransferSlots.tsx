@@ -22,6 +22,7 @@ import { useSnackbar } from "notistack";
 
 import TransferSlotsTable from "./TransferSlotsTable";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 // ----------------------------------------------------------------------
 
@@ -54,12 +55,11 @@ export default function VendorMoneyTransferData() {
   const ShowSlots = () => {
     let token = localStorage.getItem("token");
     Api(`vendor/transferSlots`, "GET", "", token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          // enqueueSnackbar(Response.data.message);
-          setPayoutData(Response.data.data[0].slots);
-        } else {
-        }
+      if (isOk(Response)) {
+        // enqueueSnackbar(Response.data.message);
+        setPayoutData(Response.data.data[0].slots);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -77,15 +77,14 @@ export default function VendorMoneyTransferData() {
       body,
       token
     ).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          enqueueSnackbar(Response.data.message);
-          setSlot([]);
-          setMinAmount("");
-          setMaxAmount("");
-          ShowSlots();
-        } else {
-        }
+      if (isOk(Response)) {
+        enqueueSnackbar(Response.data.message);
+        setSlot([]);
+        setMinAmount("");
+        setMaxAmount("");
+        ShowSlots();
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };

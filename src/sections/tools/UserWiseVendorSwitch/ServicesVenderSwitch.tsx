@@ -11,6 +11,7 @@ import { useAuthContext } from "src/auth/useAuthContext";
 import TransferVendorSwitch from "./TransferVendorSwitch";
 import PayoutPayments from "./PayoutPayments";
 import { useParams } from "react-router-dom";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 // ----------------------------------------------------------------------
 
 export const CategoryContext = createContext(null);
@@ -32,12 +33,11 @@ export default function ServicesVenderSwitch() {
   const getCategoryList = () => {
     let token = localStorage.getItem("token");
     Api(`category/get_CategoryList`, "GET", "", token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setCategoryList(Response.data.data);
-          setSuperCurrentTab(Response.data.data[0].category_name);
-        } else {
-        }
+      if (isOk(Response)) {
+        setCategoryList(Response.data.data);
+        setSuperCurrentTab(Response.data.data[0].category_name);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };

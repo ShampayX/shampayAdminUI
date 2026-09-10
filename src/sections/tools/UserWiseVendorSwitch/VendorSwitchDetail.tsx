@@ -37,6 +37,7 @@ import React from "react";
 import { ReadStream } from "fs";
 import { MapSchemeSetting } from "src/routes/elements";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 // import { Label } from '@mui/icons-material';
 
@@ -117,16 +118,15 @@ export default function VendorSwitchDetail({
       vendorId: venId._id,
     };
     Api(`product/setActiveVendor`, "POST", body, "").then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          enqueueSnackbar(Response.data.message);
-          setActiveV((item: any) => ({
-            ...item,
-            _id: venId._id,
-          }));
-          handleClose();
-        } else {
-        }
+      if (isOk(Response)) {
+        enqueueSnackbar(Response.data.message);
+        setActiveV((item: any) => ({
+          ...item,
+          _id: venId._id,
+        }));
+        handleClose();
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };

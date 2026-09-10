@@ -23,6 +23,7 @@ import { Upload } from "../../components/upload";
 import React, { useEffect, useState, useCallback } from "react";
 import { fDateTime } from "src/utils/formatTime";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 // ----------------------------------------------------------------------
 
 type RowProps = {
@@ -41,7 +42,6 @@ type RowProps = {
   total: number;
   rank: string;
   finalStatus: string;
-  referralCode: string;
   contact_no: string;
   role: string;
   createdAt: string;
@@ -50,6 +50,7 @@ type RowProps = {
 };
 
 export default function DirectAgent() {
+  const { enqueueSnackbar } = useSnackbar();
   const { Api } = useAuthContext();
   const [appdata, setAppdata] = useState([]);
   const [currentPage, setCurrentPage] = useState<any>(1);
@@ -59,7 +60,6 @@ export default function DirectAgent() {
     { id: "shopname", label: "Shop Name" },
     { id: "commission", label: "City/State" },
     { id: "Type", label: "User Type" },
-    { id: "due", label: "Referred By", align: "center" },
     { id: "maxComm", label: "Mobile Verified" },
     { id: "mobileNumber", label: "Mobile Number", align: "center" },
     { id: "maxComm", label: "Email Verified" },
@@ -74,15 +74,18 @@ export default function DirectAgent() {
   const ApprovedList = () => {
     let token = localStorage.getItem("token");
     Api(`admin/get_ApprovedList`, "GET", "", token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setAppdata(
-            Response.data.data.filter((item: any) => {
-              return item.role == "agent" && item.referralCode == "";
-            })
-          );
-        } else {
-        }
+      if (isOk(Response)) {
+        setAppdata(
+          Response.data.data.filter((item: any) => {
+            // Item 3d: `referralCode` was removed from the user record. The
+            // old condition `referralCode == ""` meant "an agent with no
+            // referrer"; against the new payload it is `undefined == ""`,
+            // which is false for every row, so this list rendered EMPTY.
+            return item.role == "agent";
+          })
+        );
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -162,7 +165,6 @@ function EcommerceBestSalesmanRow({ row }: EcommerceBestSalesmanRowProps) {
       <TableCell>{row.city}</TableCell>
       <TableCell>{"Direct Agent"}</TableCell>
 
-      <TableCell>{row.referralCode != "" ? row.referralCode : "NA"}</TableCell>
       <TableCell>{row.mobileVerify ? "Verified" : "Unverified"}</TableCell>
       <TableCell>{row.contact_no}</TableCell>
       <TableCell>{row.emailVerify ? "Verified" : "Unverified"}</TableCell>

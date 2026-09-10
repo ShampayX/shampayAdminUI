@@ -31,6 +31,7 @@ import React from "react";
 import KYCVender from "./KYCVender";
 import { useAuthContext } from "src/auth/useAuthContext";
 import Panneydrop from "./Panneydrop";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 // import { Label } from '@mui/icons-material';
 
@@ -84,12 +85,11 @@ export default function ServicesVenderSwitch() {
   const getCategoryList = () => {
     Api(`category/getOtherCategoryList`, "GET", "", "").then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setCategoryList(Response.data.data);
-            setSuperCurrentTab(Response.data.data[0].category_name);
-          } else {
-          }
+        if (isOk(Response)) {
+          setCategoryList(Response.data.data);
+          setSuperCurrentTab(Response.data.data[0].category_name);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );

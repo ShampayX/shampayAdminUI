@@ -21,6 +21,7 @@ import FormProvider, { RHFSelect } from "../../../components/hook-form";
 import { useSnackbar } from "notistack";
 import { useAuthContext } from "src/auth/useAuthContext";
 import VendorPBPSDataTable from "./VendorPBPSDataTable";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 // ----------------------------------------------------------------------
 
@@ -53,13 +54,11 @@ export default function VendorPBPSData() {
   const ShowSlots = () => {
     let token = localStorage.getItem("token");
     Api(`vendor/show_pbps_slots`, "GET", "", token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          // enqueueSnackbar(Response.data.message);
-          Response.data.data.length &&
-            setPayoutData(Response.data.data[0].slots);
-        } else {
-        }
+      if (isOk(Response)) {
+        // enqueueSnackbar(Response.data.message);
+        Response.data.data.length && setPayoutData(Response.data.data[0].slots);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -77,15 +76,14 @@ export default function VendorPBPSData() {
       body,
       token
     ).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          enqueueSnackbar(Response.data.message);
-          setSlot([]);
-          setMinAmount("");
-          setMaxAmount("");
-          ShowSlots();
-        } else {
-        }
+      if (isOk(Response)) {
+        enqueueSnackbar(Response.data.message);
+        setSlot([]);
+        setMinAmount("");
+        setMaxAmount("");
+        ShowSlots();
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };

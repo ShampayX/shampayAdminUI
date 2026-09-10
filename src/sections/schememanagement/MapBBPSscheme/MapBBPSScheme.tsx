@@ -46,6 +46,7 @@ import MapBBPSSchemeRow, {
   BbpsMappingRow,
   roleLabel,
 } from "./MapBBPSSchemeTable";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 // ----------------------------------------------------------------------
 // Plans > Bill Payment Mapping (internally "map BBPS scheme").
@@ -181,18 +182,14 @@ export default function MapBBPSScheme() {
     let token = localStorage.getItem("token");
     Api(`bbpsManagement/bbpsScheme/schemes`, "GET", "", token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setSchemeList(
-              (Response.data.data || []).filter(
-                (item: any) => item.schemeType == val
-              )
-            );
-          } else {
-            enqueueSnackbar(Response.data.data);
-          }
+        if (isOk(Response)) {
+          setSchemeList(
+            (Response.data.data || []).filter(
+              (item: any) => item.schemeType == val
+            )
+          );
         } else {
-          enqueueSnackbar("Failed to load schemes");
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -211,16 +208,12 @@ export default function MapBBPSScheme() {
         body,
         token
       ).then((Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            handleClose();
-            mapSchemeList("");
-            enqueueSnackbar(Response.data.message);
-          } else {
-            enqueueSnackbar(Response.data.message);
-          }
+        if (isOk(Response)) {
+          handleClose();
+          mapSchemeList("");
+          enqueueSnackbar(Response.data.message);
         } else {
-          enqueueSnackbar("Failed");
+          notifyFailure(enqueueSnackbar, Response);
         }
       });
     } catch (err) {}
@@ -487,9 +480,7 @@ export default function MapBBPSScheme() {
                       </MenuItem>
                     ))
                   ) : (
-                    <MenuItem disabled>
-                      No plans for this account type
-                    </MenuItem>
+                    <MenuItem disabled>No plans for this account type</MenuItem>
                   )}
                 </RHFSelect>
               </FormGrid>

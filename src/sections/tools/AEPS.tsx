@@ -39,6 +39,7 @@ import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { CustomAvatar } from "src/components/custom-avatar";
 import { sentenceCase } from "change-case";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 const IOSSwitch = styled((props: SwitchProps) => (
   <Switch focusVisibleClassName=".Mui-focusVisible" disableRipple {...props} />
@@ -172,30 +173,25 @@ function AEPS() {
   function getSlab() {
     let token = localStorage.getItem("token");
     Api(`admin/adminDetails`, "GET", "", token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          if (Response.data.data.agentSettlementSlab.length) {
-            setAgentSattlementSlab(Response.data.data.agentSettlementSlab);
-          }
-          if (Response.data.data.apiUserSettlementSlab.length) {
-            setApiSattlementSlab(Response.data.data.apiUserSettlementSlab);
-          }
-          setAepsAgentHold(
-            Response.data.data.settlementWalletHoldAmountForAgent
-          );
-          setAepsApiHold(
-            Response.data.data.settlementWalletHoldAmountForApiUser
-          );
-          setAepsServiceStatus(Response.data.data.isSettlementServiceEnable);
-          setAepsTxnAgentHold(
-            Response.data.data.isSettlementTransactionOnHoldForAgent
-          );
-          setAepsTxnApiHold(
-            Response.data.data.isSettlementTransactionOnHoldForApiUser
-          );
-          setAeps(Response.data.data.AEPS_Reg_Charge);
-        } else {
+      if (isOk(Response)) {
+        if (Response.data.data.agentSettlementSlab.length) {
+          setAgentSattlementSlab(Response.data.data.agentSettlementSlab);
         }
+        if (Response.data.data.apiUserSettlementSlab.length) {
+          setApiSattlementSlab(Response.data.data.apiUserSettlementSlab);
+        }
+        setAepsAgentHold(Response.data.data.settlementWalletHoldAmountForAgent);
+        setAepsApiHold(Response.data.data.settlementWalletHoldAmountForApiUser);
+        setAepsServiceStatus(Response.data.data.isSettlementServiceEnable);
+        setAepsTxnAgentHold(
+          Response.data.data.isSettlementTransactionOnHoldForAgent
+        );
+        setAepsTxnApiHold(
+          Response.data.data.isSettlementTransactionOnHoldForApiUser
+        );
+        setAeps(Response.data.data.AEPS_Reg_Charge);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   }
@@ -211,12 +207,11 @@ function AEPS() {
       body,
       token
     ).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          enqueueSnackbar(Response.data.message);
-          setIsEditAgent(!isEditAgent);
-        } else {
-        }
+      if (isOk(Response)) {
+        enqueueSnackbar(Response.data.message);
+        setIsEditAgent(!isEditAgent);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -233,12 +228,10 @@ function AEPS() {
       body,
       token
     ).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          enqueueSnackbar(Response.data.message);
-        } else {
-          enqueueSnackbar(Response.data.message);
-        }
+      if (isOk(Response)) {
+        enqueueSnackbar(Response.data.message);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -251,17 +244,13 @@ function AEPS() {
     };
     Api(`admin/set_settlement_service_status`, "POST", body, token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setAepsServiceStatus(!aepsServiceStatus);
-            enqueueSnackbar("Service Status Update successfully");
-          } else {
-            enqueueSnackbar(Response.data.message);
-          }
-          setIsLoadingServiceStatus(false);
+        if (isOk(Response)) {
+          setAepsServiceStatus(!aepsServiceStatus);
+          enqueueSnackbar("Service Status Update successfully");
         } else {
-          setIsLoadingServiceStatus(false);
+          notifyFailure(enqueueSnackbar, Response);
         }
+        setIsLoadingServiceStatus(false);
       }
     );
   }
@@ -278,17 +267,13 @@ function AEPS() {
       body,
       token
     ).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setAepsTxnAgentHold(!aepsTxnAgentHold);
-          enqueueSnackbar("Service Status Update successfully");
-        } else {
-          enqueueSnackbar(Response.data.message);
-        }
-        setIsLoadingHoldAgent(false);
+      if (isOk(Response)) {
+        setAepsTxnAgentHold(!aepsTxnAgentHold);
+        enqueueSnackbar("Service Status Update successfully");
       } else {
-        setIsLoadingHoldAgent(false);
+        notifyFailure(enqueueSnackbar, Response);
       }
+      setIsLoadingHoldAgent(false);
     });
   }
 
@@ -300,17 +285,15 @@ function AEPS() {
     };
     Api(`admin/set_AEPS_registration_charge`, "POST", body, token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            // enqueueSnackbar(Response.data.message);
-            setIsEditing(false);
-            setAepsLoading(false);
-          } else {
-            setIsEditing(true);
-            setAepsLoading(false);
-            // enqueueSnackbar(Response.data.message);
-          }
+        // Item 1c: the failure branch silently put the field back into edit mode
+        // with no explanation - the toast was commented out.
+        if (isOk(Response)) {
+          setIsEditing(false);
+        } else {
+          setIsEditing(true);
+          notifyFailure(enqueueSnackbar, Response);
         }
+        setAepsLoading(false);
       }
     );
   };
@@ -327,17 +310,13 @@ function AEPS() {
       body,
       token
     ).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setAepsTxnApiHold(!aepsTxnApiHold);
-          enqueueSnackbar("Service Status Update successfully");
-        } else {
-          enqueueSnackbar(Response.data.message);
-        }
-        setIsLoadingHoldApi(false);
+      if (isOk(Response)) {
+        setAepsTxnApiHold(!aepsTxnApiHold);
+        enqueueSnackbar("Service Status Update successfully");
       } else {
-        setIsLoadingHoldApi(false);
+        notifyFailure(enqueueSnackbar, Response);
       }
+      setIsLoadingHoldApi(false);
     });
   }
 
@@ -713,14 +692,12 @@ function AgentSettlement({ agentSettlementSlab }: any) {
       };
       Api(`admin/set_agent_settlement_slab`, "POST", body, token).then(
         (Response: any) => {
-          if (Response?.status == 200) {
-            if (Response.data.code == 200) {
-              setEdit(false);
-              agentSettlementSlab = agentSettlementSlab;
-              enqueueSnackbar(Response.data.message);
-            } else {
-              // enqueueSnackbar(Response.data.message);
-            }
+          if (isOk(Response)) {
+            setEdit(false);
+            agentSettlementSlab = agentSettlementSlab;
+            enqueueSnackbar(Response.data.message);
+          } else {
+            notifyFailure(enqueueSnackbar, Response);
           }
         }
       );
@@ -971,14 +948,12 @@ function ApiSettlement({ apiSettlementSlab }: any) {
       };
       Api(`admin/set_apiUser_settlement_slab`, "POST", body, token).then(
         (Response: any) => {
-          if (Response?.status == 200) {
-            if (Response.data.code == 200) {
-              setEdit(false);
-              apiSettlementSlab = [...apiSettlementSlab];
-              enqueueSnackbar(Response.data.message);
-            } else {
-              // enqueueSnackbar(Response.data.message);
-            }
+          if (isOk(Response)) {
+            setEdit(false);
+            apiSettlementSlab = [...apiSettlementSlab];
+            enqueueSnackbar(Response.data.message);
+          } else {
+            notifyFailure(enqueueSnackbar, Response);
           }
         }
       );
@@ -1284,11 +1259,10 @@ function UpdateAepsOnBoardingStatus() {
     };
     val?.length > 2
       ? Api(`admin/search_user`, "POST", body, token).then((Response: any) => {
-          if (Response?.status == 200) {
-            if (Response.data.code == 200) {
-              setUserList(Response.data.data);
-            } else {
-            }
+          if (isOk(Response)) {
+            setUserList(Response.data.data);
+          } else {
+            notifyFailure(enqueueSnackbar, Response);
           }
         })
       : setUserList([]);
@@ -1309,20 +1283,12 @@ function UpdateAepsOnBoardingStatus() {
         body,
         token
       ).then((Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            enqueueSnackbar(Response.data.message);
-            setValue("userDetail.fingPayAEPSKycStatus", kyc);
-            setValue("userDetail.fingPayAPESRegistrationStatus", registration);
-          } else {
-            enqueueSnackbar(Response.data.message, {
-              variant: "error",
-            });
-          }
+        if (isOk(Response)) {
+          enqueueSnackbar(Response.data.message);
+          setValue("userDetail.fingPayAEPSKycStatus", kyc);
+          setValue("userDetail.fingPayAPESRegistrationStatus", registration);
         } else {
-          enqueueSnackbar("Failed", {
-            variant: "error",
-          });
+          notifyFailure(enqueueSnackbar, Response);
         }
       });
     } catch (e) {}

@@ -33,9 +33,16 @@ import {
   ModalShell,
 } from "src/components/page-kit";
 import SendOutlinedIcon from "@mui/icons-material/SendOutlined";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 /** Label / value line used in the success receipt. */
-function ReceiptRow({ label, children }: { label: string; children: ReactNode }) {
+function ReceiptRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
   return (
     <Stack
       direction="row"
@@ -44,10 +51,14 @@ function ReceiptRow({ label, children }: { label: string; children: ReactNode })
       spacing={2}
       sx={{ py: 1.25 }}
     >
-      <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: "text.secondary" }}>
+      <Typography
+        sx={{ fontSize: 12.5, fontWeight: 700, color: "text.secondary" }}
+      >
         {label}
       </Typography>
-      <Typography sx={{ fontSize: 14, textAlign: "right" }}>{children}</Typography>
+      <Typography sx={{ fontSize: 14, textAlign: "right" }}>
+        {children}
+      </Typography>
     </Stack>
   );
 }
@@ -197,10 +208,10 @@ export default function AdminFundFlow() {
       val.length
         ? Api(`admin/search_user`, "POST", body, token).then(
             (Response: any) => {
-              if (Response?.status == 200) {
-                if (Response.data.code == 200) {
-                  setToUsers(Response.data.data);
-                }
+              if (isOk(Response)) {
+                setToUsers(Response.data.data);
+              } else {
+                notifyFailure(enqueueSnackbar, Response);
               }
             }
           )
@@ -221,11 +232,10 @@ export default function AdminFundFlow() {
       val.length
         ? Api(`admin/search_user`, "POST", body, token).then(
             (Response: any) => {
-              if (Response?.status == 200) {
-                if (Response.data.code == 200) {
-                  setFromUsers(Response.data.data);
-                } else {
-                }
+              if (isOk(Response)) {
+                setFromUsers(Response.data.data);
+              } else {
+                notifyFailure(enqueueSnackbar, Response);
               }
             }
           )
@@ -247,13 +257,11 @@ export default function AdminFundFlow() {
     };
     Api(`adminTransaction/get_transaction`, "POST", body, token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            enqueueSnackbar(Response.data.message);
-            setValue("amount", String(Response.data?.data?.data[0]?.amount));
-          } else {
-            enqueueSnackbar(Response.data.message);
-          }
+        if (isOk(Response)) {
+          enqueueSnackbar(Response.data.message);
+          setValue("amount", String(Response.data?.data?.data[0]?.amount));
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -284,18 +292,16 @@ export default function AdminFundFlow() {
     await fetchLocation();
     const token = localStorage.getItem("token");
     await Api(`admin/fund_flow`, "POST", body, token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setIsLoading(false);
-          enqueueSnackbar(Response.data.message);
-          handleOpen();
-          handleCloseDetails();
-          setTxnResponse(Response.data.data);
-        } else {
-          enqueueSnackbar(Response.data.message);
-        }
+      if (isOk(Response)) {
         setIsLoading(false);
+        enqueueSnackbar(Response.data.message);
+        handleOpen();
+        handleCloseDetails();
+        setTxnResponse(Response.data.data);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
+      setIsLoading(false);
     });
   };
 
@@ -327,386 +333,393 @@ export default function AdminFundFlow() {
             title="New transfer"
             subtitle="Pick the direction first — the From / To fields follow it."
           >
-          <Stack spacing={2.5}>
-            <RHFSelect
-              fullWidth
-              label="Transaction Type"
-              size="small"
-              placeholder="transaction Type"
-              // InputLabelProps={{ shrink: true }}
-              value={txntype}
-              SelectProps={{
-                native: false,
-                sx: { textTransform: "capitalize" },
-              }}
-              {...register("transactionType", {
-                onChange: (e: any) => setTxntype(e.target.value),
-                required: true,
-              })}
-            >
-              <MenuItem value={"credit"}>Credit</MenuItem>
-              <MenuItem value={"debit"}>Debit</MenuItem>
-              <MenuItem value={"usertouser"}>User to User</MenuItem>
-            </RHFSelect>
-            {txntype && (
-              <>
-                {txntype == "credit" ? (
-                  <RHFTextField
-                    name="from"
-                    label="From"
-                    placeholder="From"
-                    size="small"
-                    disabled
-                    variant="filled"
-                  />
-                ) : (
-                  <>
-                    <RHFSelect
-                      fullWidth
-                      name="fromsearchby"
-                      label="From Search By"
+            <Stack spacing={2.5}>
+              <RHFSelect
+                fullWidth
+                label="Transaction Type"
+                size="small"
+                placeholder="transaction Type"
+                // InputLabelProps={{ shrink: true }}
+                value={txntype}
+                SelectProps={{
+                  native: false,
+                  sx: { textTransform: "capitalize" },
+                }}
+                {...register("transactionType", {
+                  onChange: (e: any) => setTxntype(e.target.value),
+                  required: true,
+                })}
+              >
+                <MenuItem value={"credit"}>Credit</MenuItem>
+                <MenuItem value={"debit"}>Debit</MenuItem>
+                <MenuItem value={"usertouser"}>User to User</MenuItem>
+              </RHFSelect>
+              {txntype && (
+                <>
+                  {txntype == "credit" ? (
+                    <RHFTextField
+                      name="from"
+                      label="From"
+                      placeholder="From"
                       size="small"
-                      placeholder="From Search By"
-                      sx={{ flexBasis: 200 }}
-                      // InputLabelProps={{ shrink: true }}
-                      SelectProps={{
-                        native: false,
-                        sx: { textTransform: "capitalize" },
-                      }}
-                    >
-                      <MenuItem
-                        value={"usercode"}
-                        onClick={() => setFromSearchBy("userCode")}
-                      >
-                        User Code
-                      </MenuItem>
-                      <MenuItem
-                        value={"firstName"}
-                        onClick={() => setFromSearchBy("firstName")}
-                      >
-                        First Name
-                      </MenuItem>
-                      <MenuItem
-                        value={"contact_no"}
-                        onClick={() => setFromSearchBy("contact_no")}
-                      >
-                        Contact Number
-                      </MenuItem>
-                      <MenuItem
-                        value={"email"}
-                        onClick={() => setFromSearchBy("email")}
-                      >
-                        Email
-                      </MenuItem>
-                    </RHFSelect>
-                    <Stack
-                      style={{
-                        position: "relative",
-                        maxHeight: 300,
-                        width: "100%",
-                      }}
-                    >
-                      <TextField
-                        placeholder={FromSearchBy || "usercode"}
-                        label={"From"}
+                      disabled
+                      variant="filled"
+                    />
+                  ) : (
+                    <>
+                      <RHFSelect
+                        fullWidth
+                        name="fromsearchby"
+                        label="From Search By"
                         size="small"
-                        error={!!errors.from}
-                        value={selectFromUser.userName}
-                        {...register("from", {
-                          onChange: (e: any) => searchFromUser(e.target.value),
-                          required: true,
-                        })}
-                      />
-                      {fromusers.length ? (
-                        <Box
-                          sx={{
-                            position: "absolute",
-                            top: 44,
-                            zIndex: 999,
-                            width: "100%",
-                            maxHeight: 300,
-                            overflowY: "auto",
-                            borderRadius: 1.5,
-                            backgroundColor: "background.paper",
-                            border: (t) => `1px solid ${t.palette.divider}`,
-                            boxShadow: "0 12px 32px rgba(15, 23, 42, 0.16)",
-                          }}
+                        placeholder="From Search By"
+                        sx={{ flexBasis: 200 }}
+                        // InputLabelProps={{ shrink: true }}
+                        SelectProps={{
+                          native: false,
+                          sx: { textTransform: "capitalize" },
+                        }}
+                      >
+                        <MenuItem
+                          value={"usercode"}
+                          onClick={() => setFromSearchBy("userCode")}
                         >
-                          {fromusers.map((item: any) => {
-                            return (
-                              <Stack
-                                flexDirection={"row"}
-                                alignItems="center"
-                                gap={1}
-                                sx={{
-                                  "&:hover": {
-                                    bgcolor: "action.hover",
-                                    cursor: "pointer",
-                                  },
-                                  padding: 1,
-                                }}
-                                onClick={() => setFromValue(item)}
-                              >
-                                <CustomAvatar
-                                  name={item.firstName}
-                                  alt={item.firstName}
-                                  src={item.selfie[0] || ""}
-                                />
-                                <Typography key={item._id} sx={{ fontSize: 14 }}>
-                                  {`${item.firstName + " " + item.lastName} (${
-                                    item.role
-                                  })`}
-                                </Typography>
-                              </Stack>
-                            );
+                          User Code
+                        </MenuItem>
+                        <MenuItem
+                          value={"firstName"}
+                          onClick={() => setFromSearchBy("firstName")}
+                        >
+                          First Name
+                        </MenuItem>
+                        <MenuItem
+                          value={"contact_no"}
+                          onClick={() => setFromSearchBy("contact_no")}
+                        >
+                          Contact Number
+                        </MenuItem>
+                        <MenuItem
+                          value={"email"}
+                          onClick={() => setFromSearchBy("email")}
+                        >
+                          Email
+                        </MenuItem>
+                      </RHFSelect>
+                      <Stack
+                        style={{
+                          position: "relative",
+                          maxHeight: 300,
+                          width: "100%",
+                        }}
+                      >
+                        <TextField
+                          placeholder={FromSearchBy || "usercode"}
+                          label={"From"}
+                          size="small"
+                          error={!!errors.from}
+                          value={selectFromUser.userName}
+                          {...register("from", {
+                            onChange: (e: any) =>
+                              searchFromUser(e.target.value),
+                            required: true,
                           })}
-                        </Box>
-                      ) : null}
-                    </Stack>
-                  </>
-                )}
+                        />
+                        {fromusers.length ? (
+                          <Box
+                            sx={{
+                              position: "absolute",
+                              top: 44,
+                              zIndex: 999,
+                              width: "100%",
+                              maxHeight: 300,
+                              overflowY: "auto",
+                              borderRadius: 1.5,
+                              backgroundColor: "background.paper",
+                              border: (t) => `1px solid ${t.palette.divider}`,
+                              boxShadow: "0 12px 32px rgba(15, 23, 42, 0.16)",
+                            }}
+                          >
+                            {fromusers.map((item: any) => {
+                              return (
+                                <Stack
+                                  flexDirection={"row"}
+                                  alignItems="center"
+                                  gap={1}
+                                  sx={{
+                                    "&:hover": {
+                                      bgcolor: "action.hover",
+                                      cursor: "pointer",
+                                    },
+                                    padding: 1,
+                                  }}
+                                  onClick={() => setFromValue(item)}
+                                >
+                                  <CustomAvatar
+                                    name={item.firstName}
+                                    alt={item.firstName}
+                                    src={item.selfie[0] || ""}
+                                  />
+                                  <Typography
+                                    key={item._id}
+                                    sx={{ fontSize: 14 }}
+                                  >
+                                    {`${
+                                      item.firstName + " " + item.lastName
+                                    } (${item.role})`}
+                                  </Typography>
+                                </Stack>
+                              );
+                            })}
+                          </Box>
+                        ) : null}
+                      </Stack>
+                    </>
+                  )}
 
-                {txntype == "debit" ? (
-                  <RHFTextField
-                    name="to"
-                    label="To"
-                    placeholder="To"
-                    size="small"
-                    disabled
-                    variant="filled"
-                    value={user?.email}
-                  />
-                ) : (
-                  <>
-                    <RHFSelect
-                      fullWidth
-                      name="tosearchby"
-                      label="To Search By"
+                  {txntype == "debit" ? (
+                    <RHFTextField
+                      name="to"
+                      label="To"
+                      placeholder="To"
                       size="small"
-                      placeholder="To Search By"
-                      sx={{ flexBasis: 200 }}
-                      // InputLabelProps={{ shrink: true }}
-                      SelectProps={{
-                        native: false,
-                        sx: { textTransform: "capitalize" },
-                      }}
-                    >
-                      <MenuItem
-                        value={"usercode"}
-                        onClick={() => setToSearchBy("userCode")}
-                      >
-                        User Code
-                      </MenuItem>
-                      <MenuItem
-                        value={"firstName"}
-                        onClick={() => setToSearchBy("firstName")}
-                      >
-                        First Name
-                      </MenuItem>
-                      <MenuItem
-                        value={"contact_no"}
-                        onClick={() => setToSearchBy("contact_no")}
-                      >
-                        Contact Number
-                      </MenuItem>
-                      <MenuItem
-                        value={"email"}
-                        onClick={() => setToSearchBy("email")}
-                      >
-                        Email
-                      </MenuItem>
-                    </RHFSelect>
-                    <Stack
-                      style={{
-                        position: "relative",
-                        maxHeight: 300,
-                        width: "100%",
-                      }}
-                    >
-                      <TextField
-                        placeholder={toSearchBy || "usercode"}
-                        label={"To"}
-                        error={!!errors.to}
+                      disabled
+                      variant="filled"
+                      value={user?.email}
+                    />
+                  ) : (
+                    <>
+                      <RHFSelect
+                        fullWidth
+                        name="tosearchby"
+                        label="To Search By"
                         size="small"
-                        value={selectToUser.userName}
-                        {...register("to", {
-                          onChange: (e: any) => searchToUser(e.target.value),
-                          required: true,
-                        })}
-                      />
-
-                      {tousers.length ? (
-                        <Box
-                          sx={{
-                            position: "absolute",
-                            top: 44,
-                            zIndex: 999,
-                            width: "100%",
-                            maxHeight: 300,
-                            overflowY: "auto",
-                            borderRadius: 1.5,
-                            backgroundColor: "background.paper",
-                            border: (t) => `1px solid ${t.palette.divider}`,
-                            boxShadow: "0 12px 32px rgba(15, 23, 42, 0.16)",
-                          }}
+                        placeholder="To Search By"
+                        sx={{ flexBasis: 200 }}
+                        // InputLabelProps={{ shrink: true }}
+                        SelectProps={{
+                          native: false,
+                          sx: { textTransform: "capitalize" },
+                        }}
+                      >
+                        <MenuItem
+                          value={"usercode"}
+                          onClick={() => setToSearchBy("userCode")}
                         >
-                          {tousers.map((item: any) => {
-                            return (
-                              <Stack
-                                flexDirection={"row"}
-                                alignItems="center"
-                                gap={1}
-                                sx={{
-                                  "&:hover": {
-                                    bgcolor: "action.hover",
-                                    cursor: "pointer",
-                                  },
-                                  padding: 1,
-                                }}
-                                onClick={() => setToValue(item)}
-                              >
-                                <CustomAvatar
-                                  name={item.firstName}
-                                  alt={item.firstName}
-                                  src={item.selfie[0] || ""}
-                                />
-                                <Typography key={item._id} sx={{ fontSize: 14 }}>
-                                  {`${item.firstName + " " + item.lastName} (${
-                                    item.role
-                                  })`}
-                                </Typography>
-                              </Stack>
-                            );
+                          User Code
+                        </MenuItem>
+                        <MenuItem
+                          value={"firstName"}
+                          onClick={() => setToSearchBy("firstName")}
+                        >
+                          First Name
+                        </MenuItem>
+                        <MenuItem
+                          value={"contact_no"}
+                          onClick={() => setToSearchBy("contact_no")}
+                        >
+                          Contact Number
+                        </MenuItem>
+                        <MenuItem
+                          value={"email"}
+                          onClick={() => setToSearchBy("email")}
+                        >
+                          Email
+                        </MenuItem>
+                      </RHFSelect>
+                      <Stack
+                        style={{
+                          position: "relative",
+                          maxHeight: 300,
+                          width: "100%",
+                        }}
+                      >
+                        <TextField
+                          placeholder={toSearchBy || "usercode"}
+                          label={"To"}
+                          error={!!errors.to}
+                          size="small"
+                          value={selectToUser.userName}
+                          {...register("to", {
+                            onChange: (e: any) => searchToUser(e.target.value),
+                            required: true,
                           })}
-                        </Box>
-                      ) : null}
-                    </Stack>
-                  </>
-                )}
-              </>
-            )}
-            <RHFSelect
-              fullWidth
-              name="reason"
-              label="Reasons"
-              size="small"
-              placeholder="Reasons"
-              // InputLabelProps={{ shrink: true }}
-              SelectProps={{
-                native: false,
-                sx: { textTransform: "capitalize" },
-              }}
-            >
-              <MenuItem
-                value={"gstcredit"}
-                onClick={(e) => setCreditReason("gstcredit")}
+                        />
+
+                        {tousers.length ? (
+                          <Box
+                            sx={{
+                              position: "absolute",
+                              top: 44,
+                              zIndex: 999,
+                              width: "100%",
+                              maxHeight: 300,
+                              overflowY: "auto",
+                              borderRadius: 1.5,
+                              backgroundColor: "background.paper",
+                              border: (t) => `1px solid ${t.palette.divider}`,
+                              boxShadow: "0 12px 32px rgba(15, 23, 42, 0.16)",
+                            }}
+                          >
+                            {tousers.map((item: any) => {
+                              return (
+                                <Stack
+                                  flexDirection={"row"}
+                                  alignItems="center"
+                                  gap={1}
+                                  sx={{
+                                    "&:hover": {
+                                      bgcolor: "action.hover",
+                                      cursor: "pointer",
+                                    },
+                                    padding: 1,
+                                  }}
+                                  onClick={() => setToValue(item)}
+                                >
+                                  <CustomAvatar
+                                    name={item.firstName}
+                                    alt={item.firstName}
+                                    src={item.selfie[0] || ""}
+                                  />
+                                  <Typography
+                                    key={item._id}
+                                    sx={{ fontSize: 14 }}
+                                  >
+                                    {`${
+                                      item.firstName + " " + item.lastName
+                                    } (${item.role})`}
+                                  </Typography>
+                                </Stack>
+                              );
+                            })}
+                          </Box>
+                        ) : null}
+                      </Stack>
+                    </>
+                  )}
+                </>
+              )}
+              <RHFSelect
+                fullWidth
+                name="reason"
+                label="Reasons"
+                size="small"
+                placeholder="Reasons"
+                // InputLabelProps={{ shrink: true }}
+                SelectProps={{
+                  native: false,
+                  sx: { textTransform: "capitalize" },
+                }}
               >
-                GST Credit
-              </MenuItem>
-              <MenuItem
-                value={"Incentive"}
-                onClick={(e) => setCreditReason("Incentive")}
-              >
-                Incentive
-              </MenuItem>
-              <MenuItem
-                value={"wrongdebit"}
-                onClick={(e) => setCreditReason("wrongdebit")}
-              >
-                Wrong Debit
-              </MenuItem>
-              <MenuItem
-                value={"creditgiven"}
-                onClick={(e) => setCreditReason("creditgiven")}
-              >
-                Credit given
-              </MenuItem>
-              <MenuItem
-                value={"wrongcredit"}
-                onClick={(e) => setCreditReason("wrongcredit")}
-              >
-                Wrong Credit
-              </MenuItem>
-              <MenuItem
-                value={"creditreturn"}
-                onClick={(e) => setCreditReason("creditreturn")}
-              >
-                Credit Return
-              </MenuItem>
-              <MenuItem
-                value={"chargeback"}
-                onClick={(e) => setCreditReason("chargeback")}
-              >
-                Charge Back
-              </MenuItem>
-              <MenuItem
-                value={"others"}
-                onClick={(e) => setCreditReason("others")}
-              >
-                Others
-              </MenuItem>
-            </RHFSelect>
-            {(creditReason == "wrongdebit" ||
+                <MenuItem
+                  value={"gstcredit"}
+                  onClick={(e) => setCreditReason("gstcredit")}
+                >
+                  GST Credit
+                </MenuItem>
+                <MenuItem
+                  value={"Incentive"}
+                  onClick={(e) => setCreditReason("Incentive")}
+                >
+                  Incentive
+                </MenuItem>
+                <MenuItem
+                  value={"wrongdebit"}
+                  onClick={(e) => setCreditReason("wrongdebit")}
+                >
+                  Wrong Debit
+                </MenuItem>
+                <MenuItem
+                  value={"creditgiven"}
+                  onClick={(e) => setCreditReason("creditgiven")}
+                >
+                  Credit given
+                </MenuItem>
+                <MenuItem
+                  value={"wrongcredit"}
+                  onClick={(e) => setCreditReason("wrongcredit")}
+                >
+                  Wrong Credit
+                </MenuItem>
+                <MenuItem
+                  value={"creditreturn"}
+                  onClick={(e) => setCreditReason("creditreturn")}
+                >
+                  Credit Return
+                </MenuItem>
+                <MenuItem
+                  value={"chargeback"}
+                  onClick={(e) => setCreditReason("chargeback")}
+                >
+                  Charge Back
+                </MenuItem>
+                <MenuItem
+                  value={"others"}
+                  onClick={(e) => setCreditReason("others")}
+                >
+                  Others
+                </MenuItem>
+              </RHFSelect>
+              {(creditReason == "wrongdebit" ||
+                creditReason == "wrongcredit" ||
+                creditReason == "creditreturn" ||
+                creditReason == "chargeback") && (
+                <Stack flexDirection={"row"} gap={1.5} alignItems="flex-start">
+                  <RHFTextField
+                    label="Transaction ID"
+                    placeholder="Transaction ID"
+                    size="small"
+                    error={!!errors.transactionid}
+                    value={txnId}
+                    {...register("transactionid", {
+                      onChange: (e: any) => setTxnId(e.target.value),
+                      required: true,
+                    })}
+                  />
+                  {!!errors.transactionid && (
+                    <FormHelperText error sx={{ pl: 2 }}>
+                      Code is required
+                    </FormHelperText>
+                  )}
+                  <PageGhostButton onClick={() => gettransaction(txnId)}>
+                    Find
+                  </PageGhostButton>
+                </Stack>
+              )}
+              {creditReason == "wrongdebit" ||
               creditReason == "wrongcredit" ||
               creditReason == "creditreturn" ||
-              creditReason == "chargeback") && (
-              <Stack flexDirection={"row"} gap={1.5} alignItems="flex-start">
-                <RHFTextField
-                  label="Transaction ID"
-                  placeholder="Transaction ID"
+              creditReason == "chargeback" ? (
+                <TextField
+                  name="amount"
+                  label="Amount"
+                  placeholder="Amount"
+                  variant="filled"
+                  disabled
                   size="small"
-                  error={!!errors.transactionid}
-                  value={txnId}
-                  {...register("transactionid", {
-                    onChange: (e: any) => setTxnId(e.target.value),
-                    required: true,
-                  })}
+                  value={watch("amount")}
                 />
-                {!!errors.transactionid && (
-                  <FormHelperText error sx={{ pl: 2 }}>
-                    Code is required
-                  </FormHelperText>
-                )}
-                <PageGhostButton onClick={() => gettransaction(txnId)}>
-                  Find
-                </PageGhostButton>
-              </Stack>
-            )}
-            {creditReason == "wrongdebit" ||
-            creditReason == "wrongcredit" ||
-            creditReason == "creditreturn" ||
-            creditReason == "chargeback" ? (
-              <TextField
-                name="amount"
-                label="Amount"
-                placeholder="Amount"
-                variant="filled"
-                disabled
-                size="small"
-                value={watch("amount")}
-              />
-            ) : (
+              ) : (
+                <RHFTextField
+                  type="number"
+                  name="amount"
+                  label="Amount"
+                  placeholder="Amount"
+                  size="small"
+                />
+              )}
               <RHFTextField
-                type="number"
-                name="amount"
-                label="Amount"
-                placeholder="Amount"
+                name="remarks"
+                label="Remarks"
+                placeholder="Remarks"
                 size="small"
               />
-            )}
-            <RHFTextField
-              name="remarks"
-              label="Remarks"
-              placeholder="Remarks"
-              size="small"
-            />
-          </Stack>
+            </Stack>
 
-          <FormActions>
-            <PageActionButton type="submit" startIcon={<SendOutlinedIcon />}>
-              Proceed
-            </PageActionButton>
-          </FormActions>
+            <FormActions>
+              <PageActionButton type="submit" startIcon={<SendOutlinedIcon />}>
+                Proceed
+              </PageActionButton>
+            </FormActions>
           </FormCard>
 
           <ConfirmDialog

@@ -27,6 +27,7 @@ import { requestPermission } from "./firebase";
 import { fetchLocation } from "src/utils/fetchLocation";
 import { MenuItem } from "@mui/material";
 import { Select } from "@mui/material";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 // ----------------------------------------------------------------------
 
@@ -151,48 +152,41 @@ export default function AuthLoginForm() {
       };
 
       await Api(`admin/admin_login`, "POST", body, "").then((Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            Api("admin/adminDetails", "GET", "", Response.data.data.token).then(
-              (resp: any) => {
-                if (resp?.status == 200) {
-                  if (resp?.data?.code == 200) {
-                    const { token, user, modules } = Response.data;
+        if (isOk(Response)) {
+          Api("admin/adminDetails", "GET", "", Response.data.data.token).then(
+            (resp: any) => {
+              if (resp?.status == 200) {
+                if (resp?.data?.code == 200) {
+                  const { token, user, modules } = Response.data;
 
-                    localStorage.setItem("adminToken", token);
-                    localStorage.setItem(
-                      "adminModules",
-                      JSON.stringify(modules)
-                    );
-                    localStorage.setItem(
-                      "adminUserData",
-                      JSON.stringify(Response.data)
-                    );
-                    localStorage.setItem("role", "Super_Admin");
+                  localStorage.setItem("adminToken", token);
+                  localStorage.setItem("adminModules", JSON.stringify(modules));
+                  localStorage.setItem(
+                    "adminUserData",
+                    JSON.stringify(Response.data)
+                  );
+                  localStorage.setItem("role", "Super_Admin");
 
-                    login(Response.data.data.token, resp.data.data);
+                  login(Response.data.data.token, resp.data.data);
 
-                    // const { token, user, modules } = Response.data;
-                    // localStorage.setItem("adminToken", token);
-                    // localStorage.setItem(
-                    //   "adminModules",
-                    //   JSON.stringify(modules)
-                    // );
-                    // localStorage.setItem(
-                    //   "adminUserData",
-                    //   JSON.stringify(Response.data)
-                    // );
-                    // localStorage.setItem("role", "Super_Admin");
-                  }
+                  // const { token, user, modules } = Response.data;
+                  // localStorage.setItem("adminToken", token);
+                  // localStorage.setItem(
+                  //   "adminModules",
+                  //   JSON.stringify(modules)
+                  // );
+                  // localStorage.setItem(
+                  //   "adminUserData",
+                  //   JSON.stringify(Response.data)
+                  // );
+                  // localStorage.setItem("role", "Super_Admin");
                 }
               }
-            );
-            enqueueSnackbar(Response.data.message);
-          } else {
-            enqueueSnackbar(Response.data.message, { variant: "warning" });
-          }
+            }
+          );
+          enqueueSnackbar(Response.data.message);
         } else {
-          enqueueSnackbar("Failed", { variant: "error" });
+          notifyFailure(enqueueSnackbar, Response);
         }
       });
     } catch (error) {

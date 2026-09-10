@@ -45,6 +45,7 @@ import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { RHFSelect, RHFTextField } from "src/components/hook-form";
 import Label from "src/components/label/Label";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 // ----------------------------------------------------------------------
 
 export default function PlanFetchRecords() {
@@ -133,10 +134,10 @@ export default function PlanFetchRecords() {
   const getCategoryList = () => {
     let token = localStorage.getItem("token");
     Api(`category/get_CategoryList`, "GET", "", token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setCategoryList(Response.data.data);
-        }
+      if (isOk(Response)) {
+        setCategoryList(Response.data.data);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -145,10 +146,10 @@ export default function PlanFetchRecords() {
     let token = localStorage.getItem("token");
     Api(`admin/vendoriliaryRecord/type`, "GET", "", token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setPlanTypeList(Response.data.data);
-          }
+        if (isOk(Response)) {
+          setPlanTypeList(Response.data.data);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -158,10 +159,10 @@ export default function PlanFetchRecords() {
     let token = localStorage.getItem("token");
     Api(`admin/vendorAuxiliaryRecord/vendor_list`, "GET", "", token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setvenderList(Response.data.data);
-          }
+        if (isOk(Response)) {
+          setvenderList(Response.data.data);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );

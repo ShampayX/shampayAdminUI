@@ -2,8 +2,11 @@ import React, { useEffect, useState } from "react";
 import { useAuthContext } from "src/auth/useAuthContext";
 import { Typography, TableContainer, Stack, Tabs, Tab } from "@mui/material";
 import VendorCreditCardData from "../paymentsData/VendorCreditCardData";
+import { isOk, notifyFailure } from "src/utils/apiResult";
+import { useSnackbar } from "src/components/snackbar";
 
 function Payements() {
+  const { enqueueSnackbar } = useSnackbar();
   const { Api } = useAuthContext();
   const [categoryList, setCategoryList] = useState([]);
   const [productList, setProductList] = useState([]);
@@ -15,16 +18,16 @@ function Payements() {
   const getCategoryList = () => {
     let token = localStorage.getItem("token");
     Api(`category/get_CategoryList`, "GET", "", token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setCategoryList(Response.data.data);
+      if (isOk(Response)) {
+        setCategoryList(Response.data.data);
 
-          Response?.data?.data?.map((item: any) => {
-            if (item.category_name == "PAYMENTS") {
-              getProductlist(item?._id);
-            }
-          });
-        }
+        Response?.data?.data?.map((item: any) => {
+          if (item.category_name == "PAYMENTS") {
+            getProductlist(item?._id);
+          }
+        });
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -33,11 +36,10 @@ function Payements() {
     let token = localStorage.getItem("token");
     Api(`product/get_ProductList/${val}`, "GET", "", token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setProductList(Response?.data?.data);
-          } else {
-          }
+        if (isOk(Response)) {
+          setProductList(Response?.data?.data);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );

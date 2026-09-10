@@ -6,6 +6,10 @@ import * as Yup from "yup";
 import { useAuthContext } from "src/auth/useAuthContext";
 import PayoutComponet from "./PayoutComponet";
 import { CategoryContext } from "./ServicesVenderSwitch";
+import VendorWarnings, {
+  vendorWarningsOf,
+} from "src/components/VendorWarnings";
+import { isOk } from "src/utils/apiResult";
 
 // ----------------------------------------------------------------------
 
@@ -34,6 +38,7 @@ export default function DMT2VendorSwitch({ userId }: Props) {
   const [isLoading, setIsLoading] = useState(false);
   const [productId, setProductId] = useState<any>([]);
   const [vendorList, setVendorList] = useState([]);
+  const [vendorWarnings, setVendorWarnings] = useState<string[]>([]);
   const [isEdit, setIsEdit] = useState(false);
 
   // Form Controller
@@ -78,24 +83,33 @@ export default function DMT2VendorSwitch({ userId }: Props) {
       (Response: any) => {
         if (Response?.status == 200) {
           if (Response.data.code == 200) {
-            setProductId(Response.data.data);
-            Response.data.data.map((item: any) =>
-              Api(`product/getActiveVendor/${item._id}`, "GET", "", token).then(
-                (Response: any) => {
-                  if (Response?.status == 200 && Response.data.code == 200) {
-                    setValue(
-                      "neoNetworkVendor",
-                      Response.data.data.neoNetworkVendor
-                    );
-                    setValue("apiUserVendor", Response.data.data.apiUserVendor);
-                    setValue(
-                      "directAgentVendor",
-                      Response.data.data.directAgentVendor
-                    );
-                  }
-                }
-              )
-            );
+            const products = Response.data.data || [];
+            setProductId(products);
+
+            // Stage 3: `POST product/getActiveVendors` is the batch form of
+            // `GET product/getActiveVendor/:productId`. This used to fire one
+            // request per product and let them race into the same three form
+            // fields, so whichever landed last won - now it is one request and
+            // the last product with routing wins deterministically.
+            const productIds = products.map((item: any) => item._id);
+            if (productIds.length) {
+              Api(
+                "product/getActiveVendors",
+                "POST",
+                { productIds },
+                token
+              ).then((BatchResponse: any) => {
+                if (!isOk(BatchResponse)) return;
+                const map = BatchResponse.data?.data || {};
+                productIds.forEach((pid: string) => {
+                  const routing = map[pid];
+                  if (!routing) return;
+                  setValue("neoNetworkVendor", routing.neoNetworkVendor);
+                  setValue("apiUserVendor", routing.apiUserVendor);
+                  setValue("directAgentVendor", routing.directAgentVendor);
+                });
+              });
+            }
 
             // Fetch Vendor List
             MTVendors();
@@ -113,6 +127,9 @@ export default function DMT2VendorSwitch({ userId }: Props) {
       (Response: any) => {
         if (Response?.status == 200 && Response.data.code == 200) {
           setVendorList(Response.data.data);
+          // Item 3b: an empty dropdown used to be indistinguishable from a
+          // broken one. `warnings` sits beside `data`, not inside it.
+          setVendorWarnings(vendorWarningsOf(Response));
         }
         setIsLoading(false);
       }
@@ -121,6 +138,7 @@ export default function DMT2VendorSwitch({ userId }: Props) {
 
   return (
     <>
+      <VendorWarnings warnings={vendorWarnings} />
       {productId?.map((item: any) => (
         <PayoutComponet
           key={item._id}

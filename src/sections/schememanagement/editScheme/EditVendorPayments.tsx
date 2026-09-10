@@ -33,6 +33,7 @@ import { Icon } from "@iconify/react";
 import { LoadingButton } from "@mui/lab";
 import MotionModal from "src/components/animate/MotionModal";
 import { SchemeDetail } from "../ManageScheme/EditScheme";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 // ----------------------------------------------------------------------
 
@@ -160,24 +161,24 @@ export default function EditVendorPayments({
     let token = localStorage.getItem("token");
     await Api(`product/get_ProductList/${cateId}`, "GET", "", token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            let arr: any = [];
-            Response.data.data.map((item: any) => {
-              let slotsArr: any = [];
-              val.map((row: any) => {
-                if (item._id == row.productId) {
-                  slotsArr.push(row);
-                }
-              });
-              arr.push({
-                productId: item._id,
-                productName: item.productName,
-                slots: slotsArr,
-              });
+        if (isOk(Response)) {
+          let arr: any = [];
+          Response.data.data.map((item: any) => {
+            let slotsArr: any = [];
+            val.map((row: any) => {
+              if (item._id == row.productId) {
+                slotsArr.push(row);
+              }
             });
-            setValue("tableData", arr);
-          }
+            arr.push({
+              productId: item._id,
+              productName: item.productName,
+              slots: slotsArr,
+            });
+          });
+          setValue("tableData", arr);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -187,13 +188,11 @@ export default function EditVendorPayments({
     let token = localStorage.getItem("token");
     Api(`product/get_ProductList/${val}`, "GET", "", token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            Response.data.data.map((element: any) =>
-              VendorPaymentSlot(element)
-            );
-            handleOpen();
-          }
+        if (isOk(Response)) {
+          Response.data.data.map((element: any) => VendorPaymentSlot(element));
+          handleOpen();
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -203,32 +202,32 @@ export default function EditVendorPayments({
     let token = localStorage.getItem("token");
     Api(`vendor/vendor_payment_slots/${val._id}`, "GET", "", token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            let arr: any = [];
-            Response.data.data[0].slots.map((item: any) => {
-              arr.push({
-                productId: val._id,
-                _id: item._id,
-                minSlab: item.minSlab,
-                maxSlab: item.maxSlab,
-                chargeType: "",
-                agentCharge: "",
-                apiUserCharge: "",
-                commissionType: "",
-                distributorCommission: "",
-                masterDistributorCommission: "",
-              });
+        if (isOk(Response)) {
+          let arr: any = [];
+          Response.data.data[0].slots.map((item: any) => {
+            arr.push({
+              productId: val._id,
+              _id: item._id,
+              minSlab: item.minSlab,
+              maxSlab: item.maxSlab,
+              chargeType: "",
+              agentCharge: "",
+              apiUserCharge: "",
+              commissionType: "",
+              distributorCommission: "",
+              masterDistributorCommission: "",
             });
-            setVendorPaymentSlotData((prevState: any) => [
-              ...prevState,
-              {
-                productId: val._id,
-                productName: val.productName,
-                slots: arr,
-              },
-            ]);
-          }
+          });
+          setVendorPaymentSlotData((prevState: any) => [
+            ...prevState,
+            {
+              productId: val._id,
+              productName: val.productName,
+              slots: arr,
+            },
+          ]);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -253,14 +252,14 @@ export default function EditVendorPayments({
       let token = localStorage.getItem("token");
       Api(`scheme/edit_subscheme/`, "POST", body, token).then(
         (Response: any) => {
-          if (Response?.status == 200) {
-            if (Response.data.code == 200) {
-              setEdit(false);
-              enqueueSnackbar("Scheme update Successfull !");
-            } else {
-              setEdit(false);
-              enqueueSnackbar(Response.data.message);
-            }
+          if (isOk(Response)) {
+            setEdit(false);
+            enqueueSnackbar("Scheme update Successfull !", {
+              variant: "success",
+            });
+          } else {
+            setEdit(false);
+            notifyFailure(enqueueSnackbar, Response);
           }
         }
       );

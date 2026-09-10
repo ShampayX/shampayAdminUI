@@ -31,6 +31,7 @@ import { RHFSelect, RHFTextField } from "src/components/hook-form";
 import { Icon } from "@iconify/react";
 import { SchemeDetail } from "../ManageScheme/AddNewScheme";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure, notifyResult } from "src/utils/apiResult";
 
 // ----------------------------------------------------------------------
 
@@ -52,8 +53,8 @@ type FormValuesProps = {
 };
 
 export default function AEPS2() {
-  const { Api } = useAuthContext();
   const { enqueueSnackbar } = useSnackbar();
+  const { Api } = useAuthContext();
   const schemeDetail: any = useContext(SchemeDetail);
 
   const tableLabels = [
@@ -103,69 +104,67 @@ export default function AEPS2() {
     let miniStatementArr: any = [];
     let balanceInqArr: any = [];
     Api(`vendor/show_AEPS_2_Slots`, "GET", "", token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          Response.data.data?.slotsData?.vendor_slots.map(
-            (item: any, index: any) => {
-              widthdrawArr.push({
-                minSlab: item.minSlab,
-                maxSlab: item.maxSlab,
-                productid: Response.data.data?.productData.filter((row: any) =>
-                  row?.productName
-                    ?.toLowerCase()
-                    .startsWith(item.TransactionType?.toLowerCase())
-                )[0]._id,
-                TransactionType: "withdraw-2",
-                BankMaxPayout: item.BankMaxPayout,
-                AEPSVendorPayout: item.AEPSVendorPayout,
-                commissionType: "",
-                agentCommission: "",
-                distributorCommission: "",
-                masterDistributorCommission: "",
-                apiUserCommission: "",
-                TDS: "",
-                GST: "",
-                _id: index,
-              });
-            }
-          );
-          miniStatementArr.push({
-            minSlab: "",
-            maxSlab: "",
-            productid: Response.data.data?.productData.filter(
-              (row: any) =>
-                row?.productName?.toLowerCase() == "mini statement-2"
-            )[0]._id,
-            TransactionType: "Mini Statement-2",
-            commissionType: "",
-            agentCommission: "",
-            distributorCommission: "",
-            masterDistributorCommission: "",
-            apiUserCommission: "",
-            TDS: "",
-            GST: "",
-            _id: "Mini Statement-2",
-          });
-          balanceInqArr.push({
-            minSlab: "",
-            maxSlab: "",
-            productid: Response.data.data?.productData.filter(
-              (row: any) =>
-                row?.productName?.toLowerCase() == "balance inquiry-2"
-            )[0]._id,
-            TransactionType: "Balance Inquiry-2",
-            commissionType: "",
-            agentCommission: "",
-            distributorCommission: "",
-            masterDistributorCommission: "",
-            apiUserCommission: "",
-            TDS: "",
-            GST: "",
-            _id: "Balance Inquiry-2",
-          });
-          let arry = widthdrawArr.concat(miniStatementArr, balanceInqArr);
-          setValue("commissionSetting", arry);
-        }
+      if (isOk(Response)) {
+        Response.data.data?.slotsData?.vendor_slots.map(
+          (item: any, index: any) => {
+            widthdrawArr.push({
+              minSlab: item.minSlab,
+              maxSlab: item.maxSlab,
+              productid: Response.data.data?.productData.filter((row: any) =>
+                row?.productName
+                  ?.toLowerCase()
+                  .startsWith(item.TransactionType?.toLowerCase())
+              )[0]._id,
+              TransactionType: "withdraw-2",
+              BankMaxPayout: item.BankMaxPayout,
+              AEPSVendorPayout: item.AEPSVendorPayout,
+              commissionType: "",
+              agentCommission: "",
+              distributorCommission: "",
+              masterDistributorCommission: "",
+              apiUserCommission: "",
+              TDS: "",
+              GST: "",
+              _id: index,
+            });
+          }
+        );
+        miniStatementArr.push({
+          minSlab: "",
+          maxSlab: "",
+          productid: Response.data.data?.productData.filter(
+            (row: any) => row?.productName?.toLowerCase() == "mini statement-2"
+          )[0]._id,
+          TransactionType: "Mini Statement-2",
+          commissionType: "",
+          agentCommission: "",
+          distributorCommission: "",
+          masterDistributorCommission: "",
+          apiUserCommission: "",
+          TDS: "",
+          GST: "",
+          _id: "Mini Statement-2",
+        });
+        balanceInqArr.push({
+          minSlab: "",
+          maxSlab: "",
+          productid: Response.data.data?.productData.filter(
+            (row: any) => row?.productName?.toLowerCase() == "balance inquiry-2"
+          )[0]._id,
+          TransactionType: "Balance Inquiry-2",
+          commissionType: "",
+          agentCommission: "",
+          distributorCommission: "",
+          masterDistributorCommission: "",
+          apiUserCommission: "",
+          TDS: "",
+          GST: "",
+          _id: "Balance Inquiry-2",
+        });
+        let arry = widthdrawArr.concat(miniStatementArr, balanceInqArr);
+        setValue("commissionSetting", arry);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -177,13 +176,10 @@ export default function AEPS2() {
     };
     Api(`scheme/create_subscheme`, "POST", body, token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.responseCode == 200) {
-            enqueueSnackbar(Response.data.responseMessage);
-          } else {
-            enqueueSnackbar(Response.data.message);
-          }
-        }
+        // Item 1b/1c: every response body is `{ code, message }` now, so
+        // `responseCode` is never set - this success branch could not fire and a
+        // failed save was toasted exactly like a successful one.
+        notifyResult(enqueueSnackbar, Response, "Sub-scheme created.");
       }
     );
   };

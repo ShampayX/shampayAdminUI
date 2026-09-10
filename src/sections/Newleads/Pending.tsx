@@ -25,6 +25,8 @@ import Scrollbar from "src/components/scrollbar/Scrollbar";
 import { useAuthContext } from "src/auth/useAuthContext";
 
 import { LEAD_COLUMNS_WITH_ACTION } from "./leadColumns";
+import { isOk, notifyFailure } from "src/utils/apiResult";
+import { useSnackbar } from "src/components/snackbar";
 type RowProps = {
   firstName: string;
   lastName: string;
@@ -34,7 +36,6 @@ type RowProps = {
   emailVerify: boolean;
   _id: string;
   selfie: string;
-  referralCode: string;
   contact_no: string;
   role: string;
   createdAt: string;
@@ -47,6 +48,7 @@ type RowProps = {
 };
 
 export default function Pending() {
+  const { enqueueSnackbar } = useSnackbar();
   const { Api } = useAuthContext();
   const [pendingData, setPendingData] = useState<RowProps[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -70,16 +72,13 @@ export default function Pending() {
       },
     };
     Api(`admin/get_pendingList`, "POST", body, token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setPendingData(Response.data.data);
-          setTxnCount(Response.data.count);
-        } else {
-        }
-        setIsLoading(false);
+      if (isOk(Response)) {
+        setPendingData(Response.data.data);
+        setTxnCount(Response.data.count);
       } else {
-        setIsLoading(false);
+        notifyFailure(enqueueSnackbar, Response);
       }
+      setIsLoading(false);
     });
   };
   return (

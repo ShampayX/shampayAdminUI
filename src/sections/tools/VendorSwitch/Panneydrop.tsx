@@ -16,6 +16,7 @@ import {
 } from "src/components/page-kit";
 //
 import { VendorLane, VendorValue } from "./VendorLane";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 // ----------------------------------------------------------------------
 // Vendor Switch > Penny drop.
@@ -105,13 +106,13 @@ export default function Panneydrop() {
 
     Api("admin/vendor/penny_drop/switch", "POST", body, token).then(
       (Response: any) => {
-        if (Response?.status === 200) {
-          if (Response.data.code === 200) {
-            setEditingApiUser(false);
-            setEditingNetwork(false);
-          }
-          enqueueSnackbar(Response.data.message);
+        if (isOk(Response)) {
+          setEditingApiUser(false);
+          setEditingNetwork(false);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
+        enqueueSnackbar(Response.data.message);
         setSaving(false);
       }
     );

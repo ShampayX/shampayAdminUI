@@ -13,6 +13,7 @@ import FormProvider, { RHFTextField } from "../../components/hook-form";
 import { useSnackbar } from "notistack";
 import { fetchLocation } from "src/utils/fetchLocation";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyOk, notifyFailure } from "src/utils/apiResult";
 // ----------------------------------------------------------------------
 
 type FormValuesProps = {
@@ -47,17 +48,22 @@ export default function ResetPasswordForm() {
         email: data.email,
       };
       await fetchLocation();
-      await Api(`admin/admin_forgotPassword`, "POST", body, "").then(
+      // Item 3d: the route is `admin-forgot-password`, beside the login route -
+      // NOT under `/admin`, which sits behind the admin-only guard. An admin who
+      // has forgotten their password has no session to present, so the old path
+      // could never have worked.
+      await Api(`admin-forgot-password`, "POST", body, "").then(
         (Response: any) => {
-          if (Response?.status == 200) {
-            if (Response.data.code == 200) {
-              sessionStorage.setItem("email-recovery", data.email);
-              localStorage.setItem("user", Response.data.data.user);
-              enqueueSnackbar(Response.data.message);
-              navigate(PATH_AUTH.newpassword);
-            } else {
-              enqueueSnackbar(Response.data.message);
-            }
+          if (isOk(Response)) {
+            sessionStorage.setItem("email-recovery", data.email);
+            // The reply is deliberately identical whether or not the address
+            // belongs to an admin - a different answer would let anyone
+            // enumerate admin accounts. So show it verbatim rather than
+            // claiming "OTP sent", which would be a claim we cannot make.
+            notifyOk(enqueueSnackbar, Response);
+            navigate(PATH_AUTH.newpassword);
+          } else {
+            notifyFailure(enqueueSnackbar, Response);
           }
         }
       );

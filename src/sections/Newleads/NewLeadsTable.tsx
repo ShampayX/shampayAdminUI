@@ -47,7 +47,6 @@ type RowProps = {
   emailVerify: boolean;
   _id: string;
   selfie: string;
-  referralCode: string;
   contact_no: string;
   role: string;
   createdAt: string;
@@ -89,7 +88,6 @@ function NewLeadsTable({ row }: Props) {
     window.open(mapUrl, "_blank");
   };
 
-  
   const StyledTableRow = styled(TableRow)(({ theme }) => ({
     // hide last border
 
@@ -99,8 +97,8 @@ function NewLeadsTable({ row }: Props) {
   }));
 
   return (
-      <>
-    <StyledTableRow sx={{ maxWidth: "100%" }}>
+    <>
+      <StyledTableRow sx={{ maxWidth: "100%" }}>
         <TableCell>
           <Stack direction="row" alignItems="center">
             <CustomAvatar

@@ -40,6 +40,7 @@ import PersonalLoanIcon from "src/assets/icons/loan/PersonalLoanIcon";
 import HomeLoanIcon from "src/assets/icons/loan/HomeLoanIcon";
 import GoldLoanIcon from "src/assets/icons/loan/GoldLoanIcon";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 // ----------------------------------------------------------------------
 
 export const SchemeDetail = React.createContext({});
@@ -350,20 +351,20 @@ export default function EditLoanScheme() {
   const getCategoryList = () => {
     let token = localStorage.getItem("token");
     Api(`category/get_CategoryList`, "GET", "", token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          Response.data.data.map((item: any) => {
-            if (item.category_name == "LOAN") {
-              setCategory({
-                _id: item._id,
-                category_name: item.category_name,
-                sub_category: item.sub_category,
-              });
-              setCurrentTab(item.sub_category[0]._id);
-              getProductFilter(item._id, item.sub_category[0]._id);
-            }
-          });
-        }
+      if (isOk(Response)) {
+        Response.data.data.map((item: any) => {
+          if (item.category_name == "LOAN") {
+            setCategory({
+              _id: item._id,
+              category_name: item.category_name,
+              sub_category: item.sub_category,
+            });
+            setCurrentTab(item.sub_category[0]._id);
+            getProductFilter(item._id, item.sub_category[0]._id);
+          }
+        });
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -411,12 +412,12 @@ export default function EditLoanScheme() {
       productFor: "",
     };
     Api("product/product_Filter", "POST", body, "").then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setProductList(Response.data.data);
-          setSubCurrentTab(Response.data.data[0]._id);
-          getSchemeById(Response.data.data[0]._id);
-        }
+      if (isOk(Response)) {
+        setProductList(Response.data.data);
+        setSubCurrentTab(Response.data.data[0]._id);
+        getSchemeById(Response.data.data[0]._id);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -459,15 +460,13 @@ export default function EditLoanScheme() {
     };
     Api("admin/loan/edit_subscheme/" + rowDetail._id, "POST", body, token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            enqueueSnackbar(Response.data.message);
-            setEdit(false);
-          } else {
-            enqueueSnackbar(Response.data.message);
-          }
-          setIsLoading(false);
+        if (isOk(Response)) {
+          enqueueSnackbar(Response.data.message);
+          setEdit(false);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
+        setIsLoading(false);
       }
     );
   };

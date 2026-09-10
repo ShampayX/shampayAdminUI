@@ -64,6 +64,7 @@ import {
   PageGhostButton,
   KitTabs,
 } from "src/components/page-kit";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 // ----------------------------------------------------------------------
 
@@ -289,18 +290,13 @@ export default function GeneralFilePage() {
       token
     ).then((Response: any) => {
       console.log("======New Request==response=====>", Response);
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setPendata(Response.data.data);
-          setPenlen(Response?.data?.count);
+      if (isOk(Response)) {
+        setPendata(Response.data.data);
+        setPenlen(Response?.data?.count);
 
-          console.log(
-            "======getUser===data.data udata====>",
-            Response.data.data
-          );
-        } else {
-          enqueueSnackbar(Response.data.err);
-        }
+        console.log("======getUser===data.data udata====>", Response.data.data);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -321,19 +317,16 @@ export default function GeneralFilePage() {
       token
     ).then((Response: any) => {
       console.log("======ApprovedList==User==response=====>" + Response);
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setAppdata(Response.data.data);
-          setApplen(Response?.data?.count);
-          handleClose();
-          console.log(
-            "======ApprovedList===data.data udata====>",
-            Response.data.data
-          );
-        } else {
-          console.log("======ApprovedList=Error======>" + Response);
-          enqueueSnackbar(Response.data.responseMessage);
-        }
+      if (isOk(Response)) {
+        setAppdata(Response.data.data);
+        setApplen(Response?.data?.count);
+        handleClose();
+        console.log(
+          "======ApprovedList===data.data udata====>",
+          Response.data.data
+        );
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -377,23 +370,20 @@ export default function GeneralFilePage() {
       token
     ).then((Response: any) => {
       console.log("======ApprovedList==User==response=====>" + Response);
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setAppdata(Response.data.data);
-          setApplen(Response?.data?.count);
-          handleClose();
-          console.log(
-            "======ApprovedList===data.data udata====>",
-            Response.data.data
-          );
+      if (isOk(Response)) {
+        setAppdata(Response.data.data);
+        setApplen(Response?.data?.count);
+        handleClose();
+        console.log(
+          "======ApprovedList===data.data udata====>",
+          Response.data.data
+        );
 
-          if (Response.data.code == 200 && Response?.data?.count == 0) {
-            enqueueSnackbar("No Data Found");
-          }
-        } else {
-          console.log("======ApprovedList=Error======>" + Response);
-          enqueueSnackbar(Response.data.responseMessage);
+        if (Response.data.code == 200 && Response?.data?.count == 0) {
+          enqueueSnackbar("No Data Found");
         }
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -436,22 +426,19 @@ export default function GeneralFilePage() {
       token
     ).then((Response: any) => {
       console.log("======ApprovedList==User==response=====>" + Response);
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setPendata(Response.data.data);
-          setPenlen(Response?.data?.count);
-          handleClose();
-          console.log(
-            "======ApprovedList===data.data udata====>",
-            Response.data.data
-          );
-          if (Response.data.code == 200 && Response?.data?.count == 0) {
-            enqueueSnackbar("No Data Found");
-          }
-        } else {
-          console.log("======ApprovedList=Error======>" + Response);
-          enqueueSnackbar(Response.data.responseMessage);
+      if (isOk(Response)) {
+        setPendata(Response.data.data);
+        setPenlen(Response?.data?.count);
+        handleClose();
+        console.log(
+          "======ApprovedList===data.data udata====>",
+          Response.data.data
+        );
+        if (Response.data.code == 200 && Response?.data?.count == 0) {
+          enqueueSnackbar("No Data Found");
         }
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -496,22 +483,19 @@ export default function GeneralFilePage() {
       token
     ).then((Response: any) => {
       console.log("======ApprovedList==User==response=====>" + Response);
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setRejdata(Response.data.data);
-          setRejlen(Response?.data?.count);
-          handleClose();
-          console.log(
-            "======ApprovedList===data.data udata====>",
-            Response.data.data
-          );
-          if (Response.data.code == 200 && Response?.data?.count == 0) {
-            enqueueSnackbar("No Data Found");
-          }
-        } else {
-          console.log("======ApprovedList=Error======>" + Response);
-          enqueueSnackbar(Response.data.responseMessage);
+      if (isOk(Response)) {
+        setRejdata(Response.data.data);
+        setRejlen(Response?.data?.count);
+        handleClose();
+        console.log(
+          "======ApprovedList===data.data udata====>",
+          Response.data.data
+        );
+        if (Response.data.code == 200 && Response?.data?.count == 0) {
+          enqueueSnackbar("No Data Found");
         }
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -531,18 +515,15 @@ export default function GeneralFilePage() {
       token
     ).then((Response: any) => {
       console.log("======RejectedList==User==response=====>" + Response);
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setRejdata(Response.data.data);
-          setRejlen(Response?.data?.count);
-          handleClose();
+      if (isOk(Response)) {
+        setRejdata(Response.data.data);
+        setRejlen(Response?.data?.count);
+        handleClose();
 
-          // setWalletCount(Response?.data?.data?.count);
-          console.log("======RejectedList===data.data udata====>", rejdata);
-        } else {
-          console.log("======RejectedList==Error======>" + Response);
-          enqueueSnackbar(Response.data.responseMessage);
-        }
+        // setWalletCount(Response?.data?.data?.count);
+        console.log("======RejectedList===data.data udata====>", rejdata);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -576,12 +557,10 @@ export default function GeneralFilePage() {
     {
       Api(`admin/search_user`, "POST", body, "").then((Response: any) => {
         console.log("======get_CategoryList==response=====>" + Response);
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setUserList(Response.data.data);
-          } else {
-            console.log("======get_CategoryList=======>" + Response);
-          }
+        if (isOk(Response)) {
+          setUserList(Response.data.data);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       });
     }
@@ -1024,7 +1003,7 @@ export default function GeneralFilePage() {
                 { id: "modeName", label: "Mode of Payment" },
                 { id: "	bank_name", label: "Bank" },
                 { id: "	Branch", label: "Branch" },
-                { id: "referralCode", label: "	UTR" },
+                { id: "utr", label: "	UTR" },
                 { id: "	Charge", label: "Charge/Commission" },
                 // { id: '	Commission', label: 'Commission' },
                 // { id: "	transactionSlip ", label: "	Deposit Slip " },
@@ -1068,7 +1047,7 @@ export default function GeneralFilePage() {
                 { id: "modeName", label: "Mode of Payment" },
                 { id: "	bank_name", label: "Bank" },
                 { id: "	Branch", label: "Branch" },
-                { id: "referralCode", label: "	UTR" },
+                { id: "utr", label: "	UTR" },
                 { id: "	Charge", label: "Charge/Commission" },
                 // { id: '	Commission', label: 'Commission' },
                 // { id: "	transactionSlip ", label: "	Deposit Slip " },
@@ -1112,7 +1091,7 @@ export default function GeneralFilePage() {
                 { id: "modeName", label: "Mode of Payment" },
                 { id: "	bank_name", label: "Bank" },
                 { id: "	Branch", label: "Branch" },
-                { id: "referralCode", label: "UTR" },
+                { id: "utr", label: "UTR" },
                 // { id: "	transactionSlip ", label: "	Deposit Slip " },
                 { id: "remark", label: " Patner's Remarks" },
                 { id: "Remark", label: "Remark" },
@@ -1153,7 +1132,7 @@ export default function GeneralFilePage() {
                 { id: "modeName", label: "Mode of Payment" },
                 { id: "	bank_name", label: "Bank" },
                 { id: "	Branch", label: "Branch" },
-                { id: "referralCode", label: "UTR" },
+                { id: "utr", label: "UTR" },
                 // { id: "	transactionSlip ", label: "Deposit Slip" },
                 { id: "remark", label: " Patner's Remarks" },
                 { id: "Reason", label: "Reason" },

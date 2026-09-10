@@ -30,7 +30,10 @@ import { Helmet } from "react-helmet-async";
 import React from "react";
 import { PATH_DASHBOARD } from "src/routes/paths";
 
-import ViewBBPSSchemeRow, { BbpsSchemeRow, bbpsTypeLabel } from "./ViewSchemeTable";
+import ViewBBPSSchemeRow, {
+  BbpsSchemeRow,
+  bbpsTypeLabel,
+} from "./ViewSchemeTable";
 // page kit
 import {
   PageHeader,
@@ -56,6 +59,7 @@ import Scrollbar from "src/components/scrollbar/Scrollbar";
 import { TableHeadCustom } from "src/components/table";
 import MenuPopover from "src/components/menu-popover/MenuPopover";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 // ----------------------------------------------------------------------
 
 export default function ViewAllBBPSScheme() {
@@ -309,20 +313,18 @@ export default function ViewAllBBPSScheme() {
     Api(`bbpsManagement/bbpsScheme/schemes`, "GET", "", "").then(
       (Response: any) => {
         console.log("====getUser==response====>" + Response);
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setAllScheme(Response.data.data);
-            setSdata(
-              Response.data.data.filter(
-                (item: any) => item.schemeType == "neonetwork"
-              )
-            );
-            setIsLoadingList(false);
+        if (isOk(Response)) {
+          setAllScheme(Response.data.data);
+          setSdata(
+            Response.data.data.filter(
+              (item: any) => item.schemeType == "neonetwork"
+            )
+          );
+          setIsLoadingList(false);
 
-            console.log("====getUser==data.data sdata===>", Response.data.data);
-          } else {
-            console.log("====getUser=====>" + Response);
-          }
+          console.log("====getUser==data.data sdata===>", Response.data.data);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -368,19 +370,15 @@ export default function ViewAllBBPSScheme() {
       body,
       token
     ).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          enqueueSnackbar(Response.data.message);
-          handleClose2();
-          getSchemeList();
-          setValue("Distribution Network");
-        } else {
-          enqueueSnackbar(Response.data.message);
-        }
-        setIsUploadLoading(false);
+      if (isOk(Response)) {
+        enqueueSnackbar(Response.data.message);
+        handleClose2();
+        getSchemeList();
+        setValue("Distribution Network");
       } else {
-        enqueueSnackbar("Failed");
+        notifyFailure(enqueueSnackbar, Response);
       }
+      setIsUploadLoading(false);
       setIsUploadLoading(false);
     });
   };
@@ -425,132 +423,170 @@ export default function ViewAllBBPSScheme() {
           icon={<UpdateOutlinedIcon />}
         />
       </StatGrid>
-     
-<Card sx={{ p: 2, mb: 3, borderRadius: 3, boxShadow: "0 2px 12px rgba(0,0,0,0.06)", border: "1px solid #f1f5f9" }}>
-  
-  {/* Row 1: Tabs + Primary Action */}
-  <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1.5}>
-    <Box sx={{ backgroundColor: "#f8fafc", borderRadius: 2, p: 0.5 }}>
-      <Tabs
-        value={value}
-        onChange={handleChange}
+
+      <Card
         sx={{
-          minHeight: 38,
-          "& .MuiTab-root": {
-            fontSize: 13, fontWeight: 500,
-            minHeight: 38, px: 2,
-            borderRadius: 1.5,
-            textTransform: "none",
-            color: "#64748b",
-          },
-          "& .Mui-selected": { fontWeight: 700, color: "primary.main" },
-          "& .MuiTabs-indicator": {
-            backgroundColor: "primary.main",
-            height: 3, borderRadius: 2,
-          },
+          p: 2,
+          mb: 3,
+          borderRadius: 3,
+          boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
+          border: "1px solid #f1f5f9",
         }}
       >
-        <Tab value="Distribution Network" label="Distribution Network" />
-        <Tab value="Direct Agent" label="Direct Agent" />
-        <Tab value="API user" label="API user" />
-      </Tabs>
-    </Box>
+        {/* Row 1: Tabs + Primary Action */}
+        <Stack
+          direction="row"
+          justifyContent="space-between"
+          alignItems="center"
+          mb={1.5}
+        >
+          <Box sx={{ backgroundColor: "#f8fafc", borderRadius: 2, p: 0.5 }}>
+            <Tabs
+              value={value}
+              onChange={handleChange}
+              sx={{
+                minHeight: 38,
+                "& .MuiTab-root": {
+                  fontSize: 13,
+                  fontWeight: 500,
+                  minHeight: 38,
+                  px: 2,
+                  borderRadius: 1.5,
+                  textTransform: "none",
+                  color: "#64748b",
+                },
+                "& .Mui-selected": { fontWeight: 700, color: "primary.main" },
+                "& .MuiTabs-indicator": {
+                  backgroundColor: "primary.main",
+                  height: 3,
+                  borderRadius: 2,
+                },
+              }}
+            >
+              <Tab value="Distribution Network" label="Distribution Network" />
+              <Tab value="Direct Agent" label="Direct Agent" />
+              <Tab value="API user" label="API user" />
+            </Tabs>
+          </Box>
 
-    <Button
-      size="small"
-      variant="contained"
-      onClick={openEditModal}
-      startIcon={<Icon icon="zondicons:add-solid" color="white" style={{ fontSize: 14 }} />}
-      sx={{
-        whiteSpace: "nowrap", borderRadius: 2, fontSize: 12,
-        background: (theme) =>
-            `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
-        boxShadow: "none",
-        "&:hover": { boxShadow: "0 4px 12px rgba(99,102,241,0.4)" }
-      }}
-    >
-      Add {value} Scheme
-    </Button>
-  </Stack>
+          <Button
+            size="small"
+            variant="contained"
+            onClick={openEditModal}
+            startIcon={
+              <Icon
+                icon="zondicons:add-solid"
+                color="white"
+                style={{ fontSize: 14 }}
+              />
+            }
+            sx={{
+              whiteSpace: "nowrap",
+              borderRadius: 2,
+              fontSize: 12,
+              background: (theme) =>
+                `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
+              boxShadow: "none",
+              "&:hover": { boxShadow: "0 4px 12px rgba(99,102,241,0.4)" },
+            }}
+          >
+            Add {value} Scheme
+          </Button>
+        </Stack>
 
-  <Divider sx={{ mb: 1.5 }} />
+        <Divider sx={{ mb: 1.5 }} />
 
-  {/* Row 2: Secondary Actions */}
-  <Stack direction="row" justifyContent="flex-end" gap={1} flexWrap="wrap">
-    <Button
-      size="small"
-      variant="outlined"
-      onClick={handleOpenPopover}
-      sx={{
-        whiteSpace: "nowrap", borderRadius: 2, fontSize: 12,
-        borderColor: "primary.main", color: "primary.main",
-        "&:hover": { backgroundColor: "primary.lighter" }
-      }}
-    >
-      Download Sample
-    </Button>
+        {/* Row 2: Secondary Actions */}
+        <Stack
+          direction="row"
+          justifyContent="flex-end"
+          gap={1}
+          flexWrap="wrap"
+        >
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={handleOpenPopover}
+            sx={{
+              whiteSpace: "nowrap",
+              borderRadius: 2,
+              fontSize: 12,
+              borderColor: "primary.main",
+              color: "primary.main",
+              "&:hover": { backgroundColor: "primary.lighter" },
+            }}
+          >
+            Download Sample
+          </Button>
 
-    <MenuPopover
-      open={openPopover}
-      onClose={handleClosePopover}
-      arrow="left-bottom"
-      sx={{ width: "fit-content" }}
-    >
-      <MenuItem
-        onClick={() => {
-          window.open(
-            process.env.REACT_APP_BASE_URL +
-              "bbpsManagement/bbpsScheme/download_scheme_template/distribution",
-            "_blank"
-          );
-          handleClosePopover();
-        }}
-      >
-        Sample for Distribution Network
-      </MenuItem>
-      <MenuItem
-        onClick={() => {
-          window.open(
-            process.env.REACT_APP_BASE_URL +
-              "bbpsManagement/bbpsScheme/download_scheme_template/apiUser",
-            "_blank"
-          );
-          handleClosePopover();
-        }}
-      >
-        Sample for API User
-      </MenuItem>
-    </MenuPopover>
+          <MenuPopover
+            open={openPopover}
+            onClose={handleClosePopover}
+            arrow="left-bottom"
+            sx={{ width: "fit-content" }}
+          >
+            <MenuItem
+              onClick={() => {
+                window.open(
+                  process.env.REACT_APP_BASE_URL +
+                    "bbpsManagement/bbpsScheme/download_scheme_template/distribution",
+                  "_blank"
+                );
+                handleClosePopover();
+              }}
+            >
+              Sample for Distribution Network
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                window.open(
+                  process.env.REACT_APP_BASE_URL +
+                    "bbpsManagement/bbpsScheme/download_scheme_template/apiUser",
+                  "_blank"
+                );
+                handleClosePopover();
+              }}
+            >
+              Sample for API User
+            </MenuItem>
+          </MenuPopover>
 
-    <Button
-      size="small"
-      variant="outlined"
-      onClick={handleOpen2}
-      sx={{
-        whiteSpace: "nowrap", borderRadius: 2, fontSize: 12,
-        borderColor: "#22c55e", color: "#22c55e",
-        "&:hover": { backgroundColor: "#f0fdf4" }
-      }}
-    >
-      Upload Bulk Scheme
-    </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={handleOpen2}
+            sx={{
+              whiteSpace: "nowrap",
+              borderRadius: 2,
+              fontSize: 12,
+              borderColor: "#22c55e",
+              color: "#22c55e",
+              "&:hover": { backgroundColor: "#f0fdf4" },
+            }}
+          >
+            Upload Bulk Scheme
+          </Button>
 
-    <Button
-      size="small"
-      variant="outlined"
-      onClick={handleOpen}
-      startIcon={<Icon icon="zondicons:add-solid" style={{ fontSize: 14 }} />}
-      sx={{
-        whiteSpace: "nowrap", borderRadius: 2, fontSize: 12,
-        borderColor: "#8b5cf6", color: "#8b5cf6",
-        "&:hover": { backgroundColor: "#f5f3ff" }
-      }}
-    >
-      Clone {value} Scheme
-    </Button>
-  </Stack>
-
-</Card>
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={handleOpen}
+            startIcon={
+              <Icon icon="zondicons:add-solid" style={{ fontSize: 14 }} />
+            }
+            sx={{
+              whiteSpace: "nowrap",
+              borderRadius: 2,
+              fontSize: 12,
+              borderColor: "#8b5cf6",
+              color: "#8b5cf6",
+              "&:hover": { backgroundColor: "#f5f3ff" },
+            }}
+          >
+            Clone {value} Scheme
+          </Button>
+        </Stack>
+      </Card>
       {/* 
       <Stack
         flexDirection={{ sm: "column-reverse", md: "row" }}
@@ -780,7 +816,7 @@ export default function ViewAllBBPSScheme() {
               value={schemeType}
               onChange={(e) => setSchemeType(e.target.value)}
             >
-              <MenuItem value="neonetwork">Distribution Network</MenuItem>
+              {/* Item 3d: the distribution network scheme type is retired. */}
               <MenuItem value="apiuser">API User</MenuItem>
             </Select>
             <TextField
@@ -846,7 +882,6 @@ export default function ViewAllBBPSScheme() {
           ))}
         </DataTable>
       )}
-     
     </>
   );
 }

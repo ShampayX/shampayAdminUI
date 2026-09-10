@@ -4,6 +4,7 @@ import { useSnackbar } from "notistack";
 import { useAuthContext } from "src/auth/useAuthContext";
 import { FormCard, PageActionButton } from "src/components/page-kit";
 import { IOSSwitch } from "./RoleTransferControl";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 const MasterControl = () => {
   const [transferServic, setTransferServic] = useState(false);
@@ -21,16 +22,12 @@ const MasterControl = () => {
     };
     Api(`admin/walletToWallet/setWalletConfig`, "POST", body, token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            enqueueSnackbar("User Detail found successfully", {
-              variant: "success",
-            });
-          } else {
-            enqueueSnackbar("No Data Found", { variant: "error" });
-          }
+        if (isOk(Response)) {
+          enqueueSnackbar("User Detail found successfully", {
+            variant: "success",
+          });
         } else {
-          enqueueSnackbar("No Data Found", { variant: "error" });
+          notifyFailure(enqueueSnackbar, Response);
         }
         // if (Response.code == 200) {
         //   enqueueSnackbar('No Data Found', { variant: 'error' });
@@ -45,7 +42,9 @@ const MasterControl = () => {
       title="Master Control"
       subtitle="Master switch for wallet-to-wallet transfers across the network."
       actions={
-        <PageActionButton onClick={searchTxnFilterData}>Submit</PageActionButton>
+        <PageActionButton onClick={searchTxnFilterData}>
+          Submit
+        </PageActionButton>
       }
     >
       <Stack

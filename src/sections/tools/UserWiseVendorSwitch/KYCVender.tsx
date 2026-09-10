@@ -19,6 +19,7 @@ import {
 import { LoadingButton } from "@mui/lab";
 import { useSnackbar } from "notistack";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 export default function PartnerBilling() {
   const { Api } = useAuthContext();
@@ -45,13 +46,12 @@ export default function PartnerBilling() {
 
   const getAPIDocumentation = () => {
     Api(`admin/get_KYC_Vendor`, "GET", "", "").then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setVList(Response.data.data);
+      if (isOk(Response)) {
+        setVList(Response.data.data);
 
-          setInputValue(Response.data.activeVendor);
-        } else {
-        }
+        setInputValue(Response.data.activeVendor);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -61,14 +61,12 @@ export default function PartnerBilling() {
       vendorName: inputValue,
     };
     Api("admin/set_KYC_Vendor", "POST", body, "").then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setIsLoading(false);
-          setIsEditing(false);
-          enqueueSnackbar(Response.data.message);
-        } else {
-          enqueueSnackbar(Response.data.message);
-        }
+      if (isOk(Response)) {
+        setIsLoading(false);
+        setIsEditing(false);
+        enqueueSnackbar(Response.data.message);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -77,11 +75,10 @@ export default function PartnerBilling() {
     let token = localStorage.getItem("token");
     Api(`admin/get_settlement_vendor`, "GET", "", token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setSettelementV(Response.data.data);
-          } else {
-          }
+        if (isOk(Response)) {
+          setSettelementV(Response.data.data);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -91,13 +88,11 @@ export default function PartnerBilling() {
     let token = localStorage.getItem("token");
     Api(`admin/settlement_vendor_switch/${userId}`, "GET", "", token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setIssettelementEditing(false);
-            enqueueSnackbar(Response.data.message);
-          } else {
-            enqueueSnackbar(Response.data.message);
-          }
+        if (isOk(Response)) {
+          setIssettelementEditing(false);
+          enqueueSnackbar(Response.data.message);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -163,11 +158,10 @@ export default function PartnerBilling() {
     let token = localStorage.getItem("token");
     Api(`admin/get_kyc_switch_offline`, "GET", "", token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setAadharOfline(Response?.data?.isAadhaarOffline);
-          } else {
-          }
+        if (isOk(Response)) {
+          setAadharOfline(Response?.data?.isAadhaarOffline);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -180,13 +174,11 @@ export default function PartnerBilling() {
     let token = localStorage.getItem("token");
     Api("admin/kyc_switch_office", "POST", body, token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setAadharOfline(Response?.data?.isAadhaarOffline);
-            enqueueSnackbar(Response.data.message);
-          } else {
-            enqueueSnackbar(Response.data.message);
-          }
+        if (isOk(Response)) {
+          setAadharOfline(Response?.data?.isAadhaarOffline);
+          enqueueSnackbar(Response.data.message);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );

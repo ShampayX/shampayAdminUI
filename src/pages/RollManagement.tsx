@@ -38,16 +38,11 @@ function RollManagement() {
             aria-labelledby="demo-row-radio-buttons-group-label"
             name="row-radio-buttons-group"
           >
-            <FormControlLabel value="agent" control={<Radio />} label="Agent" />
+            {/* Item 3d: roles are only Admin and API_User now. */}
             <FormControlLabel
-              value="distributor"
+              value="API_User"
               control={<Radio />}
-              label="Distributor"
-            />
-            <FormControlLabel
-              value="masterDistributor"
-              control={<Radio />}
-              label="Master Distributor"
+              label="API User"
             />
           </RadioGroup>
         </FormControl>
@@ -158,16 +153,11 @@ function RollManagement() {
             aria-labelledby="demo-row-radio-buttons-group-label"
             name="row-radio-buttons-group"
           >
-            <FormControlLabel value="agent" control={<Radio />} label="Agent" />
+            {/* Item 3d: roles are only Admin and API_User now. */}
             <FormControlLabel
-              value="distributor"
+              value="API_User"
               control={<Radio />}
-              label="Distributor"
-            />
-            <FormControlLabel
-              value="masterDistributor"
-              control={<Radio />}
-              label="Master Distributor"
+              label="API User"
             />
           </RadioGroup>
         </FormControl>

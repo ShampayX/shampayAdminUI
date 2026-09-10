@@ -15,6 +15,7 @@ import {
 import { LoadingButton } from "@mui/lab";
 import { useSnackbar } from "notistack";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 type FormValuesProps = {
   vendorType: string;
@@ -51,14 +52,13 @@ export default function Panneydrop() {
     let token = localStorage.getItem("token");
     Api(`admin/vendor/penny_drop/list`, "GET", "", token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setVList(Response.data.data);
-            setVList2(Response.data.data);
-            // setInputValue( Response.data.data);
-            // setInputValue2(Response.data.data);
-          } else {
-          }
+        if (isOk(Response)) {
+          setVList(Response.data.data);
+          setVList2(Response.data.data);
+          // setInputValue( Response.data.data);
+          // setInputValue2(Response.data.data);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -68,20 +68,19 @@ export default function Panneydrop() {
     let token = localStorage.getItem("token");
     Api(`admin/vendor/penny_drop/active`, "GET", "", token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setInputValue({
-              vendorType: "API_User",
-              vendorID: Response.data.data.API_User._id,
-              vendorName: Response.data.data.API_User.vendorName,
-            });
-            setInputValue2({
-              vendorType: "Distribution_Network",
-              vendorID: Response.data.data.Distribution_Network._id,
-              vendorName: Response.data.data.Distribution_Network.vendorName,
-            });
-          } else {
-          }
+        if (isOk(Response)) {
+          setInputValue({
+            vendorType: "API_User",
+            vendorID: Response.data.data.API_User._id,
+            vendorName: Response.data.data.API_User.vendorName,
+          });
+          setInputValue2({
+            vendorType: "Distribution_Network",
+            vendorID: Response.data.data.Distribution_Network._id,
+            vendorName: Response.data.data.Distribution_Network.vendorName,
+          });
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -96,15 +95,13 @@ export default function Panneydrop() {
     };
     Api("admin/vendor/penny_drop/switch", "POST", body, token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setIsLoading(false);
-            setIsEditing(false);
-            setIsEditing2(false);
-            enqueueSnackbar(Response.data.message);
-          } else {
-            enqueueSnackbar(Response.data.message);
-          }
+        if (isOk(Response)) {
+          setIsLoading(false);
+          setIsEditing(false);
+          setIsEditing2(false);
+          enqueueSnackbar(Response.data.message);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );

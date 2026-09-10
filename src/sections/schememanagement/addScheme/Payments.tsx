@@ -3,10 +3,13 @@ import { useAuthContext } from "src/auth/useAuthContext";
 import { SchemeDetail } from "../ManageScheme/AddNewScheme";
 import CreditCard from "../Paymentsscheme/CreditCard";
 import { Card, Stack, Tab, Tabs, Typography } from "@mui/material";
+import { isOk, notifyFailure } from "src/utils/apiResult";
+import { useSnackbar } from "src/components/snackbar";
 
 export const ProductContext = React.createContext({});
 
 export default function Payments() {
+  const { enqueueSnackbar } = useSnackbar();
   const schemeDetail: any = useContext(SchemeDetail);
   const { Api } = useAuthContext();
   const [productList, setProductList] = useState([]);
@@ -20,11 +23,11 @@ export default function Payments() {
     let token = localStorage.getItem("token");
     Api(`product/get_ProductList/${val}`, "GET", "", token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setProductList(Response?.data?.data);
-            setCurrentTab(Response?.data?.data[0]?._id);
-          }
+        if (isOk(Response)) {
+          setProductList(Response?.data?.data);
+          setCurrentTab(Response?.data?.data[0]?._id);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );

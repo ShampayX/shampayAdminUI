@@ -10,6 +10,7 @@ import { useSnackbar } from "../../../components/snackbar";
 import { PATH_DASHBOARD } from "src/routes/paths";
 import BillPayments from "../BillPayments/BillPayments";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 // ----------------------------------------------------------------------
 
 export const SchemeDetail = React.createContext({});
@@ -34,15 +35,15 @@ export default function AddNewBBPSScheme(props: any) {
   const getSubCategory = () => {
     let token = localStorage.getItem("token");
     Api(`category/get_CategoryList`, "GET", "", token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          let arr = Response.data.data.filter(
-            (item: any) => item.category_name.toLowerCase() == "bill payment"
-          );
-          setSubCategory(arr[0].sub_category);
-          setCateId(arr[0].sub_category[0]._id);
-          getBBPSslots(arr[0].sub_category);
-        }
+      if (isOk(Response)) {
+        let arr = Response.data.data.filter(
+          (item: any) => item.category_name.toLowerCase() == "bill payment"
+        );
+        setSubCategory(arr[0].sub_category);
+        setCateId(arr[0].sub_category[0]._id);
+        getBBPSslots(arr[0].sub_category);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -50,28 +51,28 @@ export default function AddNewBBPSScheme(props: any) {
   const getBBPSslots = (val: any) => {
     let token = localStorage.getItem("token");
     Api(`vendor/show_bbps_slots`, "GET", "", token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setBBPSslotForScheme(
-            Response.data.data.map((item: any, index: number) => {
-              return {
-                minSlab: +item.minSlab,
-                maxSlab: +item.maxSlab,
-                activeVendorId: "",
-                activeVendorName: "",
-                agentCommissionType: "",
-                agentCommission: "",
-                distributorCommissionType: "",
-                distributorCommission: "",
-                masterDistributorCommissionType: "",
-                masterDistributorCommission: "",
-                apiUserCommissionType: "",
-                apiUserCommission: "",
-              };
-            })
-          );
-          enqueueSnackbar(Response.data.message);
-        }
+      if (isOk(Response)) {
+        setBBPSslotForScheme(
+          Response.data.data.map((item: any, index: number) => {
+            return {
+              minSlab: +item.minSlab,
+              maxSlab: +item.maxSlab,
+              activeVendorId: "",
+              activeVendorName: "",
+              agentCommissionType: "",
+              agentCommission: "",
+              distributorCommissionType: "",
+              distributorCommission: "",
+              masterDistributorCommissionType: "",
+              masterDistributorCommission: "",
+              apiUserCommissionType: "",
+              apiUserCommission: "",
+            };
+          })
+        );
+        enqueueSnackbar(Response.data.message);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };

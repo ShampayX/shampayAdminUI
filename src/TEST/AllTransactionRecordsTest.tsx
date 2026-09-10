@@ -66,6 +66,7 @@ import {
 } from "src/sections/reports/components/transactionDateRange";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 // ----------------------------------------------------------------------
 
@@ -209,11 +210,10 @@ export default function AllTransactionRecords() {
       let token = localStorage.getItem("token");
       Api(`product/get_ProductList/${val}`, "GET", "", token).then(
         (Response: any) => {
-          if (Response?.status == 200) {
-            if (Response.data.code == 200) {
-              setProductList(Response.data.data);
-            } else {
-            }
+          if (isOk(Response)) {
+            setProductList(Response.data.data);
+          } else {
+            notifyFailure(enqueueSnackbar, Response);
           }
         }
       );
@@ -224,10 +224,10 @@ export default function AllTransactionRecords() {
   const getCategoryList = () => {
     let token = localStorage.getItem("token");
     Api(`category/get_CategoryList`, "GET", "", token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setCategoryList(Response.data.data);
-        }
+      if (isOk(Response)) {
+        setCategoryList(Response.data.data);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -236,10 +236,10 @@ export default function AllTransactionRecords() {
     let token = localStorage.getItem("token");
     Api(`adminTransaction/transactionTypes`, "GET", "", token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setTxnType(Response.data.data);
-          }
+        if (isOk(Response)) {
+          setTxnType(Response.data.data);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -262,11 +262,10 @@ export default function AllTransactionRecords() {
     };
     val.length > 2 &&
       Api(`admin/search_user`, "POST", body, token).then((Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setUserList(Response.data.data);
-          } else {
-          }
+        if (isOk(Response)) {
+          setUserList(Response.data.data);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       });
   };
@@ -351,17 +350,13 @@ export default function AllTransactionRecords() {
         body,
         token
       ).then((Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setSdata(Response.data.data.data);
-            setTxnCount(Response.data.data.totalNumberOfRecords);
-            filterData(data);
-            handleClose();
-          } else {
-            enqueueSnackbar(Response.data.message, { variant: "error" });
-          }
+        if (isOk(Response)) {
+          setSdata(Response.data.data.data);
+          setTxnCount(Response.data.data.totalNumberOfRecords);
+          filterData(data);
+          handleClose();
         } else {
-          enqueueSnackbar("Failed", { variant: "error" });
+          notifyFailure(enqueueSnackbar, Response);
         }
       });
     } catch (err) {}

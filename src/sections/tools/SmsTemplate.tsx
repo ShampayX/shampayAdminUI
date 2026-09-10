@@ -21,6 +21,7 @@ import {
 } from "src/components/page-kit";
 import AddIcon from "@mui/icons-material/Add";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import { isOk, notifyOk, notifyFailure } from "src/utils/apiResult";
 
 type FormValuesProps = {
   Title: string;
@@ -145,10 +146,13 @@ function SmsTemplate() {
     };
     Api(`SMSTemplate/addSMSTemplate`, "POST", body, "").then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          enqueueSnackbar(Response.data.message);
+        // Item 1b: success was toasted on the transport status alone, and the
+        // failure branch was empty - a refused save looked like a completed one.
+        if (isOk(Response)) {
+          notifyOk(enqueueSnackbar, Response, "Template added.");
           handleClose1();
         } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -255,8 +259,12 @@ function SmsTemplate() {
               width={980}
               actions={
                 <>
-                  <PageGhostButton onClick={handleClose1}>Close</PageGhostButton>
-                  <PageActionButton type="submit">Add Template</PageActionButton>
+                  <PageGhostButton onClick={handleClose1}>
+                    Close
+                  </PageGhostButton>
+                  <PageActionButton type="submit">
+                    Add Template
+                  </PageActionButton>
                 </>
               }
             >
@@ -371,7 +379,12 @@ function SmsTemplate() {
 
               <Stack sx={{ mt: 3 }}>
                 <Typography
-                  sx={{ mb: 1, fontSize: 13, fontWeight: 700, letterSpacing: 0.4 }}
+                  sx={{
+                    mb: 1,
+                    fontSize: 13,
+                    fontWeight: 700,
+                    letterSpacing: 0.4,
+                  }}
                 >
                   EMAIL BODY
                 </Typography>

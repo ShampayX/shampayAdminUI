@@ -31,6 +31,7 @@ import { RHFSelect, RHFTextField } from "src/components/hook-form";
 import { Icon } from "@iconify/react";
 import { SchemeDetail } from "../ManageScheme/AddNewScheme";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure, notifyResult } from "src/utils/apiResult";
 
 // ----------------------------------------------------------------------
 
@@ -55,8 +56,8 @@ type FormValuesProps = {
 };
 
 export default function DMT2() {
-  const { Api } = useAuthContext();
   const { enqueueSnackbar } = useSnackbar();
+  const { Api } = useAuthContext();
   const schemeDetail: any = useContext(SchemeDetail);
 
   const tableLabels = [
@@ -121,28 +122,28 @@ export default function DMT2() {
   const MoneyTransferSlot = () => {
     let token = localStorage.getItem("token");
     Api(`vendor/dmt2Slot`, "GET", "", token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          let arr: any = [];
-          Response.data.data[0].slots.map((item: any) => {
-            arr.push({
-              _id: item._id,
-              minSlab: item.minSlab,
-              maxSlab: item.maxSlab,
-              ccfType: "",
-              ccf: "",
-              agentCommissionType: "",
-              agentCommission: "",
-              distributorCommissionType: "",
-              distributorCommission: "",
-              masterDistributorCommissionType: "",
-              masterDistributorCommission: "",
-              ApiCommissionType: "",
-              apiUserCommission: "",
-            });
+      if (isOk(Response)) {
+        let arr: any = [];
+        Response.data.data[0].slots.map((item: any) => {
+          arr.push({
+            _id: item._id,
+            minSlab: item.minSlab,
+            maxSlab: item.maxSlab,
+            ccfType: "",
+            ccf: "",
+            agentCommissionType: "",
+            agentCommission: "",
+            distributorCommissionType: "",
+            distributorCommission: "",
+            masterDistributorCommissionType: "",
+            masterDistributorCommission: "",
+            ApiCommissionType: "",
+            apiUserCommission: "",
           });
-          setValue("commissionSetting", arr);
-        }
+        });
+        setValue("commissionSetting", arr);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -154,13 +155,10 @@ export default function DMT2() {
     };
     Api(`scheme/create_subscheme`, "POST", body, token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.responseCode == 200) {
-            enqueueSnackbar(Response.data.responseMessage);
-          } else {
-            enqueueSnackbar(Response.data.message);
-          }
-        }
+        // Item 1b/1c: every response body is `{ code, message }` now, so
+        // `responseCode` is never set - this success branch could not fire and a
+        // failed save was toasted exactly like a successful one.
+        notifyResult(enqueueSnackbar, Response, "Sub-scheme created.");
       }
     );
   };

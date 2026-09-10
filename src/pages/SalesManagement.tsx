@@ -20,6 +20,7 @@ import {
 } from "@mui/material";
 // components
 import { useSnackbar } from "../components/snackbar";
+import { isOk, notifyResult, notifyFailure } from "src/utils/apiResult";
 
 import Scrollbar from "../components/scrollbar";
 import { PATH_DASHBOARD } from "src/routes/paths";
@@ -136,22 +137,23 @@ export default function SalesManagement() {
       district: data.district,
       state: data.state,
     };
+    // Item 1b/1c: this read `responseCode`, which the `{ code, message }` contract
+    // never sets, and swallowed every failure in an empty else - so a profile that
+    // was not created looked identical to one that was. It also touched
+    // `Response.data` unguarded, which throws when `Api()` resolves to "error".
     Api(`admin/Sales/createProfile`, "POST", body, "").then((Response: any) => {
-      if (Response.data.responseCode == 200) {
-        enqueueSnackbar(Response.data.responseMessage);
+      if (notifyResult(enqueueSnackbar, Response, "Profile created.")) {
         handleClose();
-      } else {
       }
     });
   };
   const salesUsers = () => {
     Api(`admin/Sales/salesList`, "GET", "", "").then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          enqueueSnackbar(Response.data.message);
-          setAppdata(Response.data.data);
-        } else {
-        }
+      if (isOk(Response)) {
+        enqueueSnackbar(Response.data.message);
+        setAppdata(Response.data.data);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };

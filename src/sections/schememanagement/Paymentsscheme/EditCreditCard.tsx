@@ -33,6 +33,7 @@ import { RHFSelect, RHFTextField } from "src/components/hook-form";
 import MotionModal from "src/components/animate/MotionModal";
 import { Icon } from "@iconify/react";
 import { token } from "stylis";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 // ----------------------------------------------------------------------
 
 interface Props extends CardProps {
@@ -122,25 +123,25 @@ export default function EditCreditCard({ productId }: Props) {
     let token = localStorage.getItem("token");
     Api(`vendor/get/credit_card_payment_slots`, "GET", token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            let arr: any = [];
-            Response.data.data[0].slots.map((item: any) => {
-              arr.push({
-                _id: item._id,
-                minSlab: item.minSlab,
-                maxSlab: item.maxSlab,
-                chargeType: "",
-                agentCharge: "",
-                apiUserCharge: "",
-                commissionType: "",
-                distributorCommission: "",
-                masterDistributorCommission: "",
-              });
+        if (isOk(Response)) {
+          let arr: any = [];
+          Response.data.data[0].slots.map((item: any) => {
+            arr.push({
+              _id: item._id,
+              minSlab: item.minSlab,
+              maxSlab: item.maxSlab,
+              chargeType: "",
+              agentCharge: "",
+              apiUserCharge: "",
+              commissionType: "",
+              distributorCommission: "",
+              masterDistributorCommission: "",
             });
-            setUpdatedSlots(arr);
-            handleOpen();
-          }
+          });
+          setUpdatedSlots(arr);
+          handleOpen();
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
         setIsFetchSlots(false);
       }
@@ -159,23 +160,23 @@ export default function EditCreditCard({ productId }: Props) {
 
       token
     ).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          if (Response.data.data != null) {
-            if (Response.data.data?.succ?.commissionSetting.length) {
-              setValue(
-                "commissionSetting",
-                Response.data.data?.succ?.commissionSetting.filter(
-                  (item: any) => item.productId == productId
-                )[0].productCommissionSetting
-              );
-            }
-          } else {
-            enqueueSnackbar("Data not Found", { variant: "error" });
+      if (isOk(Response)) {
+        if (Response.data.data != null) {
+          if (Response.data.data?.succ?.commissionSetting.length) {
+            setValue(
+              "commissionSetting",
+              Response.data.data?.succ?.commissionSetting.filter(
+                (item: any) => item.productId == productId
+              )[0].productCommissionSetting
+            );
           }
+        } else {
+          enqueueSnackbar("Data not Found", { variant: "error" });
         }
-        setIsLoading(false);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
+      setIsLoading(false);
     });
   };
 
@@ -191,19 +192,24 @@ export default function EditCreditCard({ productId }: Props) {
       productId: data.productId,
     };
     Api(`scheme/edit/payment`, "POST", body, token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setEdit(false);
-          enqueueSnackbar("Scheme update Successfull !");
-        } else {
-          enqueueSnackbar(Response.data.message);
-        }
+      if (isOk(Response)) {
+        setEdit(false);
+        enqueueSnackbar("Scheme update Successfull !");
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
 
   if (isLoading) {
-    return <ApiDataLoading variant="table" columns={tableLabels} rows={6} minWidth={720} />;
+    return (
+      <ApiDataLoading
+        variant="table"
+        columns={tableLabels}
+        rows={6}
+        minWidth={720}
+      />
+    );
   }
 
   return (
@@ -483,13 +489,11 @@ const UpdateNewSots = ({
       ...data,
     };
     Api(`scheme/edit/payment`, "POST", body, token).then((Response: any) => {
-      if (Response.status == 200) {
-        if (Response.data.code == 200) {
-          enqueueSnackbar(Response.data.message);
-          handleClose();
-        } else {
-          enqueueSnackbar(Response.data.message);
-        }
+      if (isOk(Response)) {
+        enqueueSnackbar(Response.data.message);
+        handleClose();
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };

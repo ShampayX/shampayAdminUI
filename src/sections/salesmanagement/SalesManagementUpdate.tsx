@@ -2,6 +2,7 @@
 import { Box, Stack, Button, MenuItem } from "@mui/material";
 // components
 import { useSnackbar } from "../../components/snackbar";
+import { notifyResult } from "src/utils/apiResult";
 
 import FormProvider, {
   RHFTextField,
@@ -94,14 +95,15 @@ export default function SalesManagementUpdate(props: RowProps) {
       district: data.district,
       state: data.state,
     };
+    // Item 1b/1c: the outer guard read `Response.responseCode`, which does not
+    // exist on the `{ status, data }` that `Api()` resolves to, so this handler
+    // could never run at all - the edit reported nothing either way. The inner
+    // check then read `responseCode`, which the `{ code, message }` contract does
+    // not set.
     Api(`admin/Sales/edit/` + props.rowData._id, "POST", body, "").then(
       (Response: any) => {
-        if (Response.responseCode == 200) {
-          if (Response.data.responseCode == 200) {
-            enqueueSnackbar(Response.data.responseMessage);
-            props.parentFunction();
-          } else {
-          }
+        if (notifyResult(enqueueSnackbar, Response, "Profile updated.")) {
+          props.parentFunction();
         }
       }
     );

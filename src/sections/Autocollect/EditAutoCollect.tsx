@@ -38,6 +38,7 @@ import { LoadingButton } from "@mui/lab";
 import { useLocation, useNavigate } from "react-router";
 import { fetchLocation } from "src/utils/fetchLocation";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 const Accordion = styled((props: AccordionProps) => (
   <MuiAccordion disableGutters elevation={0} {...props} />
@@ -137,8 +138,7 @@ export default function EditAutoCollect() {
     };
 
   const users = [
-    { id: 0, label: "Agent", value: "agent" },
-    { id: 1, label: "Distributor", value: "distributor" },
+    // Item 3d: roles are only Admin and API_User now.
     { id: 2, label: "Master Distributor", value: "masterDistributor" },
     { id: 3, label: "Partner", value: "partner" },
   ];
@@ -430,11 +430,10 @@ export default function EditAutoCollect() {
     let token = localStorage.getItem("token");
     Api(`admin/autoCollect/fetch/vendors`, "GET", "", token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setVendors(Response?.data?.data);
-          } else {
-          }
+        if (isOk(Response)) {
+          setVendors(Response?.data?.data);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -455,14 +454,12 @@ export default function EditAutoCollect() {
       await fetchLocation();
       await Api(`admin/autoCollect/update`, "POST", body, token).then(
         (Response: any) => {
-          if (Response?.status == 200) {
-            if (Response.data.code == 200) {
-              reset(defaultValues);
-              enqueueSnackbar(Response.data.message);
-              navigate("/auth/autocollect/Autocollecttable");
-            } else {
-              enqueueSnackbar(Response.data.message);
-            }
+          if (isOk(Response)) {
+            reset(defaultValues);
+            enqueueSnackbar(Response.data.message);
+            navigate("/auth/autocollect/Autocollecttable");
+          } else {
+            notifyFailure(enqueueSnackbar, Response);
           }
         }
       );

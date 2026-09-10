@@ -74,11 +74,25 @@ import {
   useDataTable,
   exportToExcel,
 } from "src/components/page-kit";
-import { TablePagination, MenuItem, Drawer } from "@mui/material";
+import {
+  TablePagination,
+  MenuItem,
+  Drawer,
+  Tooltip,
+  Alert,
+} from "@mui/material";
 import ManageAccountsOutlinedIcon from "@mui/icons-material/ManageAccountsOutlined";
 import CloseIcon from "@mui/icons-material/Close";
 import FileDownloadOutlinedIcon from "@mui/icons-material/FileDownloadOutlined";
 import FilterAltOutlinedIcon from "@mui/icons-material/FilterAltOutlined";
+import {
+  isOk,
+  notifyOk,
+  notifyFailure,
+  readReadiness,
+} from "src/utils/apiResult";
+import PartnerAccessPanel from "./PartnerAccessPanel";
+import { ipEntryError } from "src/utils/ipAllowList";
 
 /* ----------------------------------------------------------------------
    Ecosystem is an operational RECORD list, not a dashboard.
@@ -104,7 +118,12 @@ const ECOSYSTEM_COLUMNS: {
   { id: "company", label: "Business", sortKey: "company_name" },
   { id: "contact", label: "Contact" },
   { id: "verify", label: "Verification", align: "center" },
-  { id: "wallet", label: "Wallet", align: "right", sortKey: "main_wallet_amount" },
+  {
+    id: "wallet",
+    label: "Wallet",
+    align: "right",
+    sortKey: "main_wallet_amount",
+  },
   { id: "created", label: "Onboarded", sortKey: "createdAt" },
   { id: "action", label: "", align: "right" },
 ];
@@ -291,6 +310,24 @@ export default function ApiUser() {
     categoryList();
   }, []);
 
+  // Item 2b: `create_API_User` accepts `myIps` now. Without at least one address
+  // a partner created here is refused on every endpoint with 500 "Please
+  // configure your IP", which is exactly how partners were being created into a
+  // dead state. Collected on the form so a new partner can be callable at once.
+  const [newPartnerIps, setNewPartnerIps] = useState<string[]>([]);
+  const [newPartnerIpDraft, setNewPartnerIpDraft] = useState("");
+  const newPartnerIpError = newPartnerIpDraft.trim()
+    ? ipEntryError(newPartnerIpDraft)
+    : "";
+  const addNewPartnerIp = () => {
+    const value = newPartnerIpDraft.trim();
+    if (!value || ipEntryError(value)) return;
+    setNewPartnerIps((prev) =>
+      prev.includes(value) ? prev : [...prev, value]
+    );
+    setNewPartnerIpDraft("");
+  };
+
   const AddApiUser = (data: FormValuesProps) => {
     setIsSubmitLoading(true);
     let token = localStorage.getItem("token");
@@ -309,29 +346,25 @@ export default function ApiUser() {
       category: cate,
       adhaarValidationCharge: data.pan,
       companyAddress: data.companyAddress,
+      // Item 2b: array or single string are both accepted; omitted when empty so
+      // the request is unchanged for anyone who does not fill the field in.
+      ...(newPartnerIps.length ? { myIps: newPartnerIps } : {}),
     };
     Api(`admin/API_User_Management/create_API_User`, "Post", body, token).then(
       (Response: any) => {
         console.log("====ApprovedList==User==response====>" + Response);
-        if (Response?.status == 200) {
-          if (Response.data.code == 400) {
-            enqueueSnackbar(Response.data.message);
-          }
-          if (Response.data.code == 200) {
-            setUserId(Response.data.data._id);
-            setAppdata([...appdata, Response.data.data]);
-            setOtpReq(true);
-            console.log(
-              "====ApprovedList==data.data udata===>",
-              Response.data.data
-            );
-          } else {
-            console.log("====ApprovedList=Error====>" + Response);
-          }
-          setIsSubmitLoading(false);
+        if (isOk(Response)) {
+          setUserId(Response.data.data._id);
+          setAppdata([...appdata, Response.data.data]);
+          setOtpReq(true);
+          console.log(
+            "====ApprovedList==data.data udata===>",
+            Response.data.data
+          );
         } else {
-          setIsSubmitLoading(false);
+          notifyFailure(enqueueSnackbar, Response);
         }
+        setIsSubmitLoading(false);
       }
     );
   };
@@ -350,17 +383,15 @@ export default function ApiUser() {
       token
     ).then((Response: any) => {
       console.log("====ApprovedList==User==response====>" + Response);
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          enqueueSnackbar(Response.data.message);
-          handleClose();
-          console.log(
-            "====ApprovedList==data.data udata===>",
-            Response.data.data
-          );
-        } else {
-          console.log("====ApprovedList=Error====>" + Response);
-        }
+      if (isOk(Response)) {
+        enqueueSnackbar(Response.data.message);
+        handleClose();
+        console.log(
+          "====ApprovedList==data.data udata===>",
+          Response.data.data
+        );
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -368,38 +399,63 @@ export default function ApiUser() {
   const ListApiUser = () => {
     let token = localStorage.getItem("token");
     setIsListLoading(true);
-    //  console.log(token);
+    // Stage 3 offers optional `page` / `pageSize` / `search` on this endpoint.
+    // Deliberately NOT opted into: it is 20 rows, and the server-side `search`
+    // covers firstName, lastName, company_name and userCode only, where the
+    // client-side search on this screen also covers email and phone. Opting in
+    // would page a 20-row list and narrow what an operator can search by.
     Api(`admin/API_User_Management/list_API_users`, "GET", "", token).then(
       (Response: any) => {
         setIsListLoading(false);
-        //  console.log("====ApprovedList==User==response====>" + Response);
-        if (Response.data.code == 200) {
+        if (isOk(Response)) {
           setAppdata(Response.data.data.slice().reverse());
-          // console.log(
-          //   "====ApprovedList==data.data udata===>",
-          //   Response.data.data
-          // );
         } else {
-          console.log("====ApprovedList=Error====>" + Response);
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
+    loadReadiness();
+  };
+
+  /**
+   * Item 3a: one request gives `ready` for every partner, so each row can carry
+   * an honest badge instead of looking identical whether or not the partner can
+   * actually transact. Read-only, and it returns no secret - the report says
+   * whether `accessKey` and the IP allow-list are set, never what they are.
+   */
+  const [readinessById, setReadinessById] = useState<Record<string, any>>({});
+  const [notReady, setNotReady] = useState<number | null>(null);
+
+  const loadReadiness = () => {
+    const token = localStorage.getItem("token");
+    Api(`admin/readiness/partners`, "GET", "", token).then((Response: any) => {
+      const body = readReadiness(Response);
+      if (!body || !Array.isArray(body.partners)) {
+        setReadinessById({});
+        setNotReady(null);
+        return;
+      }
+      const map: Record<string, any> = {};
+      body.partners.forEach((p: any) => {
+        map[p.partnerId] = p;
+      });
+      setReadinessById(map);
+      setNotReady(typeof body.notReady === "number" ? body.notReady : null);
+    });
   };
 
   const categoryList = () => {
     let token = localStorage.getItem("token");
     Api(`category/get_CategoryList`, "GET", "", token).then((Response: any) => {
       //  console.log("====ApprovedList==User==response====>" + Response);
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setCateList(Response.data.data);
-          // console.log(
-          //   "====ApprovedList==data.data udata===>",
-          //   Response.data.data
-          // );
-        } else {
-          console.log("====ApprovedList=Error====>" + Response);
-        }
+      if (isOk(Response)) {
+        setCateList(Response.data.data);
+        // console.log(
+        //   "====ApprovedList==data.data udata===>",
+        //   Response.data.data
+        // );
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -433,6 +489,20 @@ export default function ApiUser() {
 
   return (
     <>
+      {/* Item 3a: an honest count. `notReady` comes straight from the readiness
+          list endpoint, so it says how many partners the platform will actually
+          refuse rather than how many exist. */}
+      {notReady !== null && notReady > 0 && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          <strong>
+            {notReady} of {appdata.length} partner
+            {appdata.length === 1 ? "" : "s"}
+          </strong>{" "}
+          cannot transact - a blocking gate is unsatisfied. Open a partner to
+          see which one.
+        </Alert>
+      )}
+
       <FilterBar>
         <SearchField
           value={table.query}
@@ -570,6 +640,73 @@ export default function ApiUser() {
                     />
                   </FormGrid>
 
+                  {/* Item 2b: the IP allow-list, at creation time. */}
+                  <Box sx={{ mt: 2 }}>
+                    <Typography sx={{ fontSize: 13, fontWeight: 600, mb: 0.5 }}>
+                      IP allow-list
+                    </Typography>
+                    <Typography
+                      sx={{ fontSize: 12, color: "text.secondary", mb: 1 }}
+                    >
+                      A partner cannot make a single API call until at least one
+                      address is set. Ranges (10.0.0.0/8) are rejected - the
+                      platform compares addresses exactly.
+                    </Typography>
+
+                    {newPartnerIps.length > 0 && (
+                      <Stack
+                        direction="row"
+                        spacing={0.75}
+                        flexWrap="wrap"
+                        useFlexGap
+                        sx={{ mb: 1 }}
+                      >
+                        {newPartnerIps.map((ip) => (
+                          <Chip
+                            key={ip}
+                            size="small"
+                            label={ip}
+                            onDelete={() =>
+                              setNewPartnerIps((prev) =>
+                                prev.filter((x) => x !== ip)
+                              )
+                            }
+                          />
+                        ))}
+                      </Stack>
+                    )}
+
+                    <Stack direction="row" spacing={1} alignItems="flex-start">
+                      <TextField
+                        size="small"
+                        fullWidth
+                        label="Add an IPv4 or IPv6 address"
+                        placeholder="203.0.113.10"
+                        value={newPartnerIpDraft}
+                        onChange={(e) => setNewPartnerIpDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            addNewPartnerIp();
+                          }
+                        }}
+                        error={Boolean(newPartnerIpError)}
+                        helperText={newPartnerIpError || " "}
+                      />
+                      <Button
+                        variant="outlined"
+                        onClick={addNewPartnerIp}
+                        disabled={
+                          !newPartnerIpDraft.trim() ||
+                          Boolean(newPartnerIpError)
+                        }
+                        sx={{ mt: 0.25 }}
+                      >
+                        Add
+                      </Button>
+                    </Stack>
+                  </Box>
+
                   <Autocomplete
                     multiple
                     id="checkboxes-tags-demo"
@@ -660,7 +797,7 @@ export default function ApiUser() {
         </ModalShell>
       </Modal>
 
-        {/* <TableContainer sx={{ border: "1px", height: "70vh ", mt: "0px" }}>
+      {/* <TableContainer sx={{ border: "1px", height: "70vh ", mt: "0px" }}>
           <Scrollbar>
             <Table stickyHeader>
               <TableHeadCustom headLabel={tableLabels} />
@@ -683,7 +820,9 @@ export default function ApiUser() {
       ) : table.isEmpty ? (
         <EmptyState
           icon={<HubOutlinedIcon />}
-          title={table.isFiltered ? "No matching API users" : "No API users yet"}
+          title={
+            table.isFiltered ? "No matching API users" : "No API users yet"
+          }
           description={
             table.isFiltered
               ? "Nothing matches that search. Clear it to see the whole estate."
@@ -747,14 +886,57 @@ export default function ApiUser() {
                     >
                       {(row.firstName?.[0] || "") + (row.lastName?.[0] || "")}
                     </Avatar>
-                    <StackedCell
-                      bold
-                      primary={name}
-                      secondary={
-                        [row.userCode, row.role].filter(Boolean).join(" | ") ||
-                        undefined
-                      }
-                    />
+                    <Stack spacing={0.4} sx={{ minWidth: 0 }}>
+                      <StackedCell
+                        bold
+                        primary={name}
+                        secondary={
+                          [row.userCode, row.role]
+                            .filter(Boolean)
+                            .join(" | ") || undefined
+                        }
+                      />
+                      {/* Item 3a: `ready` is the one field that says whether the
+                          platform will actually let this partner transact. Rows
+                          looked identical before, ready or not. */}
+                      {readinessById[row._id] && (
+                        <Tooltip
+                          title={
+                            readinessById[row._id].ready
+                              ? readinessById[row._id].warnings?.length
+                                ? `Ready. Warnings: ${readinessById[
+                                    row._id
+                                  ].warnings.join(", ")}`
+                                : "Ready to transact."
+                              : `Blocked by: ${(
+                                  readinessById[row._id].blocking || []
+                                ).join(", ")}`
+                          }
+                        >
+                          <Chip
+                            size="small"
+                            variant="outlined"
+                            color={
+                              readinessById[row._id].ready
+                                ? readinessById[row._id].warnings?.length
+                                  ? "warning"
+                                  : "success"
+                                : "error"
+                            }
+                            label={
+                              readinessById[row._id].ready
+                                ? readinessById[row._id].warnings?.length
+                                  ? `Ready (${
+                                      readinessById[row._id].warnings.length
+                                    } warning)`
+                                  : "Ready"
+                                : "Not ready"
+                            }
+                            sx={{ alignSelf: "flex-start", height: 20 }}
+                          />
+                        </Tooltip>
+                      )}
+                    </Stack>
                   </Stack>
                 </TableCell>
 
@@ -782,7 +964,9 @@ export default function ApiUser() {
                 <TableCell align="center">
                   <Stack alignItems="center" spacing={0.5}>
                     <StatusPill status={verified ? "Verified" : "Unverified"} />
-                    <Typography sx={{ fontSize: 10.5, color: "text.secondary" }}>
+                    <Typography
+                      sx={{ fontSize: 10.5, color: "text.secondary" }}
+                    >
                       {(row.emailVerify ? "email" : "no email") +
                         " | " +
                         (row.mobileVerify ? "mobile" : "no mobile")}
@@ -858,7 +1042,10 @@ export default function ApiUser() {
                     .filter(Boolean)
                     .join(" ") || "API user"}
                 </Typography>
-                <Typography sx={{ fontSize: 12, color: "text.secondary" }} noWrap>
+                <Typography
+                  sx={{ fontSize: 12, color: "text.secondary" }}
+                  noWrap
+                >
                   {[detailRow.userCode, detailRow.email]
                     .filter(Boolean)
                     .join(" | ")}
@@ -875,6 +1062,16 @@ export default function ApiUser() {
                 row={detailRow}
                 refreshList={ListApiUser}
               />
+
+              {/* Stage 2: the four gates between "created" and "can transact",
+                  plus the IP allow-list (2b), the allowed-users row (2c), the
+                  callback URLs (2d) and the readiness report (3a). */}
+              <Box sx={{ mt: 2.5 }}>
+                <PartnerAccessPanel
+                  partnerId={detailRow._id}
+                  onChanged={ListApiUser}
+                />
+              </Box>
             </Box>
           </>
         )}
@@ -1034,12 +1231,16 @@ function EcommerceBestSalesmanRow({
     )
       .then((res: any) => {
         setSavingLien(false);
-        if (res?.status === 200 && res.data?.success) {
-          enqueueSnackbar("Lien updated", { variant: "success" });
+        // Item 1b/1c: this gated on `data.success`, which the `{ code, message }`
+        // contract does not set - so a lien that saved correctly still reported
+        // "Failed to update lien". The failure branch also discarded the
+        // backend's message, which is written for an operator to read.
+        if (isOk(res)) {
+          notifyOk(enqueueSnackbar, res, "Lien updated");
           refreshList();
           setIsEditingLien(false);
         } else {
-          enqueueSnackbar("Failed to update lien", { variant: "error" });
+          notifyFailure(enqueueSnackbar, res);
         }
       })
       .catch(() => {
@@ -1157,16 +1358,14 @@ function EcommerceBestSalesmanRow({
     let token = localStorage.getItem("token");
     Api(`category/get_CategoryList`, "GET", "", token).then((Response: any) => {
       // console.log("====ApprovedList==User==response====>" + Response);
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setCateListUpdated(Response.data.data);
-          // console.log(
-          //   "====ApprovedList==data.data udata===>",
-          //   Response.data.data
-          // );
-        } else {
-          console.log("====ApprovedList=Error====>" + Response);
-        }
+      if (isOk(Response)) {
+        setCateListUpdated(Response.data.data);
+        // console.log(
+        //   "====ApprovedList==data.data udata===>",
+        //   Response.data.data
+        // );
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -1187,18 +1386,16 @@ function EcommerceBestSalesmanRow({
       token
     ).then((Response: any) => {
       console.log("====ApprovedList==User==response====>" + Response);
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          enqueueSnackbar(Response.data.message);
+      if (isOk(Response)) {
+        enqueueSnackbar(Response.data.message);
 
-          handleCloseServices();
-          console.log(
-            "====ApprovedList==data.data udata===>",
-            Response.data.data
-          );
-        } else {
-          console.log("====ApprovedList=Error====>" + Response);
-        }
+        handleCloseServices();
+        console.log(
+          "====ApprovedList==data.data udata===>",
+          Response.data.data
+        );
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -1212,16 +1409,14 @@ function EcommerceBestSalesmanRow({
     Api(`admin/setBeneVerificationCharge`, "POST", body, token).then(
       (Response: any) => {
         console.log("====ApprovedList==User==response====>" + Response);
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            enqueueSnackbar(Response.data.message);
-            console.log(
-              "====ApprovedList==data.data udata===>",
-              Response.data.data
-            );
-          } else {
-            console.log("====ApprovedList=Error====>" + Response);
-          }
+        if (isOk(Response)) {
+          enqueueSnackbar(Response.data.message);
+          console.log(
+            "====ApprovedList==data.data udata===>",
+            Response.data.data
+          );
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -1236,16 +1431,14 @@ function EcommerceBestSalesmanRow({
     Api(`admin/bin_verify_charge`, "POST", body, token).then(
       (Response: any) => {
         console.log("====ApprovedList==User==response====>" + Response);
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            enqueueSnackbar(Response.data.message);
-            console.log(
-              "====ApprovedList==data.data udata===>",
-              Response.data.data
-            );
-          } else {
-            console.log("====ApprovedList=Error====>" + Response);
-          }
+        if (isOk(Response)) {
+          enqueueSnackbar(Response.data.message);
+          console.log(
+            "====ApprovedList==data.data udata===>",
+            Response.data.data
+          );
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -1260,16 +1453,14 @@ function EcommerceBestSalesmanRow({
     Api(`admin/aepsValidationCharge`, "POST", body, token).then(
       (Response: any) => {
         console.log("====ApprovedList==User==response====>" + Response);
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            enqueueSnackbar(Response.data.message);
-            console.log(
-              "====ApprovedList==data.data udata===>",
-              Response.data.data
-            );
-          } else {
-            console.log("====ApprovedList=Error====>" + Response);
-          }
+        if (isOk(Response)) {
+          enqueueSnackbar(Response.data.message);
+          console.log(
+            "====ApprovedList==data.data udata===>",
+            Response.data.data
+          );
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -1284,16 +1475,14 @@ function EcommerceBestSalesmanRow({
     Api(`admin/setUpiVerificationCharge`, "POST", body, token).then(
       (Response: any) => {
         console.log("====ApprovedList==User==response====>" + Response);
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            enqueueSnackbar(Response.data.message);
-            console.log(
-              "====ApprovedList==data.data udata===>",
-              Response.data.data
-            );
-          } else {
-            console.log("====ApprovedList=Error====>" + Response);
-          }
+        if (isOk(Response)) {
+          enqueueSnackbar(Response.data.message);
+          console.log(
+            "====ApprovedList==data.data udata===>",
+            Response.data.data
+          );
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -1308,16 +1497,14 @@ function EcommerceBestSalesmanRow({
     Api(`admin/adhaarValidationCharge`, "POST", body, token).then(
       (Response: any) => {
         console.log("====ApprovedList==User==response====>" + Response);
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            enqueueSnackbar(Response.data.message);
-            console.log(
-              "====ApprovedList==data.data udata===>",
-              Response.data.data
-            );
-          } else {
-            console.log("====ApprovedList=Error====>" + Response);
-          }
+        if (isOk(Response)) {
+          enqueueSnackbar(Response.data.message);
+          console.log(
+            "====ApprovedList==data.data udata===>",
+            Response.data.data
+          );
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -1330,16 +1517,14 @@ function EcommerceBestSalesmanRow({
     };
     Api(`apiBox/resendOtp`, "POST", body, token).then((Response: any) => {
       console.log("====ApprovedList==User==response====>" + Response);
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          enqueueSnackbar(Response.data.message);
-          console.log(
-            "====ApprovedList==data.data udata===>",
-            Response.data.data
-          );
-        } else {
-          console.log("====ApprovedList=Error====>" + Response);
-        }
+      if (isOk(Response)) {
+        enqueueSnackbar(Response.data.message);
+        console.log(
+          "====ApprovedList==data.data udata===>",
+          Response.data.data
+        );
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -1352,42 +1537,43 @@ function EcommerceBestSalesmanRow({
     Api(`admin/API_User_Management/verifyOTP_API_User`, "POST", body, "").then(
       (Response: any) => {
         console.log("====ApprovedList==User==response====>" + Response);
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            enqueueSnackbar(Response.data.message);
-            handleClose();
-            console.log(
-              "====ApprovedList==data.data udata===>",
-              Response.data.data
-            );
-          } else {
-            console.log("====ApprovedList=Error====>" + Response);
-          }
+        if (isOk(Response)) {
+          enqueueSnackbar(Response.data.message);
+          handleClose();
+          console.log(
+            "====ApprovedList==data.data udata===>",
+            Response.data.data
+          );
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
   };
 
   const getAepsApiUser = () => {
+    // Item 1a: this sent empty strings for both fields. An absent `pageSize` used
+    // to return the entire collection, which is what this screen relies on - the
+    // backend now defaults to 25, so empty strings would silently cut the list to
+    // the first 25 rows. Both fields are sent explicitly, at the 1000-row ceiling
+    // the backend caps reports at.
     const body = {
       pageInitData: {
-        pageSize: "",
-        currentPage: "",
+        pageSize: 1000,
+        currentPage: 1,
       },
     };
 
     Api(`admin/getAepsApiUser/${row._id}`, "POST", body, "").then(
       (Response: any) => {
         console.log("====AepsApiUser==response====>" + Response);
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            enqueueSnackbar(Response.data.message);
-            handleClose();
-            Setaeps(Response.data.data);
-            console.log("====AepsApiUserResponse===>", Response.data.data);
-          } else {
-            console.log("====AepsApiUser=Error====>" + Response);
-          }
+        if (isOk(Response)) {
+          enqueueSnackbar(Response.data.message);
+          handleClose();
+          Setaeps(Response.data.data);
+          console.log("====AepsApiUserResponse===>", Response.data.data);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -1396,6 +1582,8 @@ function EcommerceBestSalesmanRow({
   const [beneVerification, setBeneVerification] = useState<boolean>(
     row.allowed
   );
+  /** Item 2c: whether an `allowed_users` row exists at all - see below. */
+  const [hasAllowListRow, setHasAllowListRow] = useState<boolean | null>(null);
 
   const setBeneVerificationStatus = (id: string, val: boolean) => {
     let token = localStorage.getItem("token");
@@ -1412,20 +1600,16 @@ function EcommerceBestSalesmanRow({
     ).then((Response: any) => {
       console.log("======response====>" + JSON.stringify(Response));
       console.log("ROW id of user", row._id);
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          enqueueSnackbar(Response.data.message);
+      if (isOk(Response)) {
+        enqueueSnackbar(Response.data.message);
 
-          const userId = Response.data.data.userId;
-          if (Response.data.data.allowed == false) {
-            setBeneVerification(false);
-            // setBeneVerification(true);
-          }
-        } else {
-          enqueueSnackbar(Response.data.message, { variant: "error" });
+        const userId = Response.data.data.userId;
+        if (Response.data.data.allowed == false) {
+          setBeneVerification(false);
+          // setBeneVerification(true);
         }
       } else {
-        enqueueSnackbar("Failed", { variant: "error" });
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -1436,24 +1620,27 @@ function EcommerceBestSalesmanRow({
     let token = localStorage.getItem("token");
     Api(`admin/API_User_Management/getAllowedUsers`, "GET", "", token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setdataUserRestrictionList(Response.data.data);
+        if (isOk(Response)) {
+          setdataUserRestrictionList(Response.data.data);
 
-            // setBeneVerification(userRestriction);
-            const foundUser = Response.data.data.find(
-              (user: any) => user.userId === row._id
-            );
+          // setBeneVerification(userRestriction);
+          const foundUser = Response.data.data.find(
+            (user: any) => user.userId === row._id
+          );
 
-            if (foundUser) {
-              setBeneVerification(foundUser.allowed);
-              setUserRestriction(foundUser.isBeneSearchInDatabase);
-            } else {
-              // console.log("=====approved List Error====" + Response)
-            }
+          if (foundUser) {
+            setBeneVerification(foundUser.allowed);
+            setUserRestriction(foundUser.isBeneSearchInDatabase);
+            // Item 2c: a partner with no `allowed_users` row is refused at every
+            // transaction with "User not found in the allowed list". That is a
+            // different operator problem from being deliberately blocked, and
+            // the switch alone cannot tell them apart - both read "Disabled".
+            setHasAllowListRow(Boolean(foundUser.hasAllowListRow));
           } else {
-            console.log("====ApprovedList=Error====>" + Response);
+            // console.log("=====approved List Error====" + Response)
           }
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -1482,16 +1669,12 @@ function EcommerceBestSalesmanRow({
       token
     ).then((Response: any) => {
       console.log("====user restriction status==response====>" + Response);
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setUserRestriction(val);
+      if (isOk(Response)) {
+        setUserRestriction(val);
 
-          enqueueSnackbar(Response.data.message);
-        } else {
-          enqueueSnackbar(Response.data.message, { variant: "error" });
-        }
+        enqueueSnackbar(Response.data.message);
       } else {
-        enqueueSnackbar("Failed", { variant: "error" });
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -1675,226 +1858,511 @@ function EcommerceBestSalesmanRow({
 
   return (
     <>
-    <Card sx={{
-  p: 2.5, borderRadius: 3, mb: 2,
-  boxShadow: "0 2px 12px rgba(0,0,0,0.07)",
-  border: "1px solid #f1f5f9",
-  "&:hover": { boxShadow: "0 4px 20px rgba(0,0,0,0.12)" },
-  transition: "box-shadow 0.2s ease"
-}}>
+      <Card
+        sx={{
+          p: 2.5,
+          borderRadius: 3,
+          mb: 2,
+          boxShadow: "0 2px 12px rgba(0,0,0,0.07)",
+          border: "1px solid #f1f5f9",
+          "&:hover": { boxShadow: "0 4px 20px rgba(0,0,0,0.12)" },
+          transition: "box-shadow 0.2s ease",
+        }}
+      >
+        {/* Header: Name + Verification Status */}
+        <Stack
+          direction="row"
+          justifyContent="space-between"
+          alignItems="flex-start"
+          mb={2}
+        >
+          <Stack direction="row" spacing={1.5} alignItems="center">
+            <Avatar
+              sx={{
+                width: 42,
+                height: 42,
+                bgcolor: "primary.lighter",
+                color: "primary.dark",
+                fontWeight: 700,
+              }}
+            >
+              {row.firstName?.[0]}
+              {row.lastName?.[0]}
+            </Avatar>
+            <Box>
+              <Typography
+                sx={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a" }}
+              >
+                {`${row.firstName} ${row.lastName}`}
+              </Typography>
+              <Typography sx={{ fontSize: 11, color: "#94a3b8" }}>
+                {row.userCode || "No Code"} · {row.role}
+              </Typography>
+            </Box>
+          </Stack>
 
-  {/* Header: Name + Verification Status */}
-  <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={2}>
-    <Stack direction="row" spacing={1.5} alignItems="center">
-      <Avatar sx={{ width: 42, height: 42, bgcolor: "primary.lighter", color: "primary.dark", fontWeight: 700 }}>
-        {row.firstName?.[0]}{row.lastName?.[0]}
-      </Avatar>
-      <Box>
-        <Typography sx={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a" }}>
-          {`${row.firstName} ${row.lastName}`}
-        </Typography>
-        <Typography sx={{ fontSize: 11, color: "#94a3b8" }}>
-          {row.userCode || "No Code"} · {row.role}
-        </Typography>
-      </Box>
-    </Stack>
+          <Stack direction="row" spacing={1} alignItems="center">
+            {row.emailVerify && row.mobileVerify ? (
+              <Chip
+                label="Verified"
+                size="small"
+                sx={{
+                  backgroundColor: "#f0fdf4",
+                  color: "#22c55e",
+                  fontWeight: 600,
+                  fontSize: 11,
+                }}
+              />
+            ) : (
+              <Chip
+                label="Unverified"
+                size="small"
+                sx={{
+                  backgroundColor: "#fef2f2",
+                  color: "#ef4444",
+                  fontWeight: 600,
+                  fontSize: 11,
+                }}
+              />
+            )}
+          </Stack>
+        </Stack>
 
-    <Stack direction="row" spacing={1} alignItems="center">
-      {row.emailVerify && row.mobileVerify ? (
-        <Chip label="Verified" size="small"
-          sx={{ backgroundColor: "#f0fdf4", color: "#22c55e", fontWeight: 600, fontSize: 11 }} />
-      ) : (
-        <Chip label="Unverified" size="small"
-          sx={{ backgroundColor: "#fef2f2", color: "#ef4444", fontWeight: 600, fontSize: 11 }} />
-      )}
-    </Stack>
-  </Stack>
+        <Divider sx={{ mb: 2 }} />
 
-  <Divider sx={{ mb: 2 }} />
-
-  {/* Row 1: User Details + Business Details */}
-  <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2, mb: 2 }}>
-    <Box>
-      <Typography sx={{ fontSize: 11, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.8, mb: 0.5 }}>
-        User Details
-      </Typography>
-      <Typography sx={{ fontSize: 12, color: "#475569" }}>{row.email}</Typography>
-      <Typography sx={{ fontSize: 12, color: "#475569" }}>{row.contact_no}</Typography>
-      <Typography sx={{ fontSize: 12, color: "#475569" }}>
-        IP: {row.myIp || "Not Set"}
-      </Typography>
-      <Typography sx={{ fontSize: 11, color: "#94a3b8" }}>
-        Created: {fDate(row.createdAt)}
-      </Typography>
-    </Box>
-
-    <Box>
-      <Typography sx={{ fontSize: 11, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.8, mb: 0.5 }}>
-        Business Details
-      </Typography>
-      {row.company_name && (
-        <Typography sx={{ fontSize: 12, color: "#475569" }}>{row.company_name}</Typography>
-      )}
-      <Stack direction="row" alignItems="center" spacing={0.5}>
-        <Typography sx={{ fontSize: 12, color: "#475569" }}>GST: {row.GSTNumber || "—"}</Typography>
-        <IconButton size="small" onClick={() => onCopy(row.GSTNumber)} sx={{ p: 0.3 }}>
-          <Iconify icon="eva:copy-fill" width={14} />
-        </IconButton>
-      </Stack>
-      <Stack direction="row" alignItems="center" spacing={0.5}>
-        <Typography sx={{ fontSize: 12, color: "#475569" }}>PAN: {row.PANnumber || "—"}</Typography>
-        <IconButton size="small" onClick={() => onCopy(row.PANnumber)} sx={{ p: 0.3 }}>
-          <Iconify icon="eva:copy-fill" width={14} />
-        </IconButton>
-      </Stack>
-    </Box>
-  </Box>
-
-  {/* Row 2: Wallet + OTP */}
-  <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2, mb: 2 }}>
-    <Box sx={{ backgroundColor: "#f8fafc", borderRadius: 2, p: 1.2 }}>
-      <Typography sx={{ fontSize: 11, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.8, mb: 0.5 }}>
-        Wallet Balance
-      </Typography>
-      <Typography sx={{ fontSize: 12, color: "#475569" }}>
-        AEPS: ₹{fIndianCurrency(row.AEPS_wallet_amount) || "0"}
-      </Typography>
-      <Typography sx={{ fontSize: 12, color: "#475569" }}>
-        Main: ₹{fIndianCurrency(row.main_wallet_amount) || "0"}
-      </Typography>
-    </Box>
-
-    <Box sx={{ backgroundColor: "#f8fafc", borderRadius: 2, p: 1.2 }}>
-      <Typography sx={{ fontSize: 11, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.8, mb: 0.5 }}>
-        Current OTP
-      </Typography>
-      <Typography sx={{ fontSize: 12, color: "#475569" }}>Mobile: {row.mobileOtp}</Typography>
-      <Typography sx={{ fontSize: 12, color: "#475569" }}>Email: {row.emailOtp}</Typography>
-    </Box>
-  </Box>
-
-  {/* Row 3: Min/Max Limit + Lien */}
-  <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2, mb: 2 }}>
-    <Box sx={{ backgroundColor: "#f8fafc", borderRadius: 2, p: 1.2 }}>
-      <Typography sx={{ fontSize: 11, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.8, mb: 0.5 }}>
-        Min / Max Limit
-      </Typography>
-      {!isEditingLimit ? (
-        <Stack direction="row" alignItems="center" spacing={1}>
+        {/* Row 1: User Details + Business Details */}
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 2,
+            mb: 2,
+          }}
+        >
           <Box>
-            <Typography sx={{ fontSize: 12, color: "#475569" }}>Min: {minTxnLimit ?? "—"}</Typography>
-            <Typography sx={{ fontSize: 12, color: "#475569" }}>Max: {maxTxnLimit ?? "—"}</Typography>
+            <Typography
+              sx={{
+                fontSize: 11,
+                color: "#94a3b8",
+                textTransform: "uppercase",
+                letterSpacing: 0.8,
+                mb: 0.5,
+              }}
+            >
+              User Details
+            </Typography>
+            <Typography sx={{ fontSize: 12, color: "#475569" }}>
+              {row.email}
+            </Typography>
+            <Typography sx={{ fontSize: 12, color: "#475569" }}>
+              {row.contact_no}
+            </Typography>
+            <Typography sx={{ fontSize: 12, color: "#475569" }}>
+              IP: {row.myIp || "Not Set"}
+            </Typography>
+            <Typography sx={{ fontSize: 11, color: "#94a3b8" }}>
+              Created: {fDate(row.createdAt)}
+            </Typography>
           </Box>
-          <IconButton size="small" onClick={() => { setMinLimit(row.minTxnLimit ?? ""); setMaxLimit(row.maxTxnLimit ?? ""); setIsEditingLimit(true); }}>
-            <EditIcon fontSize="small" />
-          </IconButton>
-        </Stack>
-      ) : (
-        <Stack spacing={0.8}>
-          <Stack direction="row" spacing={0.8}>
-            <TextField size="small" label="Min" value={String(minTxnLimit ?? "")}
-              onChange={(e) => setMinLimit(e.target.value.replace(/\D/g, ""))}
-              sx={{ width: 80 }} inputRef={minInputRef} />
-            <TextField size="small" label="Max" value={String(maxTxnLimit ?? "")}
-              onChange={(e) => setMaxLimit(e.target.value.replace(/\D/g, ""))}
-              sx={{ width: 80 }} inputRef={maxInputRef} />
+
+          <Box>
+            <Typography
+              sx={{
+                fontSize: 11,
+                color: "#94a3b8",
+                textTransform: "uppercase",
+                letterSpacing: 0.8,
+                mb: 0.5,
+              }}
+            >
+              Business Details
+            </Typography>
+            {row.company_name && (
+              <Typography sx={{ fontSize: 12, color: "#475569" }}>
+                {row.company_name}
+              </Typography>
+            )}
+            <Stack direction="row" alignItems="center" spacing={0.5}>
+              <Typography sx={{ fontSize: 12, color: "#475569" }}>
+                GST: {row.GSTNumber || "—"}
+              </Typography>
+              <IconButton
+                size="small"
+                onClick={() => onCopy(row.GSTNumber)}
+                sx={{ p: 0.3 }}
+              >
+                <Iconify icon="eva:copy-fill" width={14} />
+              </IconButton>
+            </Stack>
+            <Stack direction="row" alignItems="center" spacing={0.5}>
+              <Typography sx={{ fontSize: 12, color: "#475569" }}>
+                PAN: {row.PANnumber || "—"}
+              </Typography>
+              <IconButton
+                size="small"
+                onClick={() => onCopy(row.PANnumber)}
+                sx={{ p: 0.3 }}
+              >
+                <Iconify icon="eva:copy-fill" width={14} />
+              </IconButton>
+            </Stack>
+          </Box>
+        </Box>
+
+        {/* Row 2: Wallet + OTP */}
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 2,
+            mb: 2,
+          }}
+        >
+          <Box sx={{ backgroundColor: "#f8fafc", borderRadius: 2, p: 1.2 }}>
+            <Typography
+              sx={{
+                fontSize: 11,
+                color: "#94a3b8",
+                textTransform: "uppercase",
+                letterSpacing: 0.8,
+                mb: 0.5,
+              }}
+            >
+              Wallet Balance
+            </Typography>
+            <Typography sx={{ fontSize: 12, color: "#475569" }}>
+              AEPS: ₹{fIndianCurrency(row.AEPS_wallet_amount) || "0"}
+            </Typography>
+            <Typography sx={{ fontSize: 12, color: "#475569" }}>
+              Main: ₹{fIndianCurrency(row.main_wallet_amount) || "0"}
+            </Typography>
+          </Box>
+
+          <Box sx={{ backgroundColor: "#f8fafc", borderRadius: 2, p: 1.2 }}>
+            <Typography
+              sx={{
+                fontSize: 11,
+                color: "#94a3b8",
+                textTransform: "uppercase",
+                letterSpacing: 0.8,
+                mb: 0.5,
+              }}
+            >
+              Current OTP
+            </Typography>
+            <Typography sx={{ fontSize: 12, color: "#475569" }}>
+              Mobile: {row.mobileOtp}
+            </Typography>
+            <Typography sx={{ fontSize: 12, color: "#475569" }}>
+              Email: {row.emailOtp}
+            </Typography>
+          </Box>
+        </Box>
+
+        {/* Row 3: Min/Max Limit + Lien */}
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 2,
+            mb: 2,
+          }}
+        >
+          <Box sx={{ backgroundColor: "#f8fafc", borderRadius: 2, p: 1.2 }}>
+            <Typography
+              sx={{
+                fontSize: 11,
+                color: "#94a3b8",
+                textTransform: "uppercase",
+                letterSpacing: 0.8,
+                mb: 0.5,
+              }}
+            >
+              Min / Max Limit
+            </Typography>
+            {!isEditingLimit ? (
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <Box>
+                  <Typography sx={{ fontSize: 12, color: "#475569" }}>
+                    Min: {minTxnLimit ?? "—"}
+                  </Typography>
+                  <Typography sx={{ fontSize: 12, color: "#475569" }}>
+                    Max: {maxTxnLimit ?? "—"}
+                  </Typography>
+                </Box>
+                <IconButton
+                  size="small"
+                  onClick={() => {
+                    setMinLimit(row.minTxnLimit ?? "");
+                    setMaxLimit(row.maxTxnLimit ?? "");
+                    setIsEditingLimit(true);
+                  }}
+                >
+                  <EditIcon fontSize="small" />
+                </IconButton>
+              </Stack>
+            ) : (
+              <Stack spacing={0.8}>
+                <Stack direction="row" spacing={0.8}>
+                  <TextField
+                    size="small"
+                    label="Min"
+                    value={String(minTxnLimit ?? "")}
+                    onChange={(e) =>
+                      setMinLimit(e.target.value.replace(/\D/g, ""))
+                    }
+                    sx={{ width: 80 }}
+                    inputRef={minInputRef}
+                  />
+                  <TextField
+                    size="small"
+                    label="Max"
+                    value={String(maxTxnLimit ?? "")}
+                    onChange={(e) =>
+                      setMaxLimit(e.target.value.replace(/\D/g, ""))
+                    }
+                    sx={{ width: 80 }}
+                    inputRef={maxInputRef}
+                  />
+                </Stack>
+                <Stack direction="row" spacing={0.5}>
+                  <IconButton
+                    size="small"
+                    onClick={saveLimits}
+                    disabled={savingLimits}
+                  >
+                    <SaveIcon fontSize="small" />
+                  </IconButton>
+                  <Button
+                    size="small"
+                    variant="text"
+                    onClick={() => {
+                      setIsEditingLimit(false);
+                      setMinLimit(row.minTxnLimit ?? "");
+                      setMaxLimit(row.maxTxnLimit ?? "");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </Stack>
+              </Stack>
+            )}
+          </Box>
+
+          <Box sx={{ backgroundColor: "#f8fafc", borderRadius: 2, p: 1.2 }}>
+            <Typography
+              sx={{
+                fontSize: 11,
+                color: "#94a3b8",
+                textTransform: "uppercase",
+                letterSpacing: 0.8,
+                mb: 0.5,
+              }}
+            >
+              Lien Amount
+            </Typography>
+            {!isEditingLien ? (
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <Typography sx={{ fontSize: 12, color: "#475569" }}>
+                  ₹{row.lienAmount ?? 0}
+                </Typography>
+                <IconButton
+                  size="small"
+                  onClick={() => {
+                    setLienValue(row.lienAmount ?? "");
+                    setIsEditingLien(true);
+                  }}
+                >
+                  <EditIcon fontSize="small" />
+                </IconButton>
+              </Stack>
+            ) : (
+              <Stack spacing={0.8}>
+                <TextField
+                  size="small"
+                  label="Lien"
+                  value={String(lienValue)}
+                  onChange={(e) =>
+                    setLienValue(e.target.value.replace(/\D/g, ""))
+                  }
+                  sx={{ width: 120 }}
+                />
+                <Stack direction="row" spacing={0.5}>
+                  <IconButton
+                    size="small"
+                    onClick={saveLienAmount}
+                    disabled={savingLien}
+                  >
+                    <SaveIcon fontSize="small" />
+                  </IconButton>
+                  <Button
+                    size="small"
+                    variant="text"
+                    onClick={() => {
+                      setIsEditingLien(false);
+                      setLienValue(row.lienAmount ?? "");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </Stack>
+              </Stack>
+            )}
+          </Box>
+        </Box>
+
+        <Divider sx={{ mb: 2 }} />
+
+        {/* Actions Row */}
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gap: 1,
+            mb: 2,
+          }}
+        >
+          {/* Edit User Data */}
+          <Button
+            variant="contained"
+            size="small"
+            onClick={() => openEditModalPopup(row._id)}
+            sx={{
+              borderRadius: 2,
+              fontSize: 11,
+              boxShadow: "none",
+              background: (theme) =>
+                `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
+            }}
+          >
+            Edit User
+          </Button>
+
+          {/* Callbacks */}
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => {
+              setCallbackData(row.partnerCallbackUrls || {});
+              setOpenCallbackModal(true);
+            }}
+            sx={{
+              borderRadius: 2,
+              fontSize: 11,
+              borderColor: "primary.main",
+              color: "primary.main",
+            }}
+          >
+            Callbacks
+          </Button>
+
+          {/* Verify / Verified */}
+          {!row.emailVerify && !row.mobileVerify ? (
+            <Button
+              variant="contained"
+              size="small"
+              onClick={() => openEditModal(row._id)}
+              sx={{
+                borderRadius: 2,
+                fontSize: 11,
+                background: "linear-gradient(135deg, #f97316, #fb923c)",
+                boxShadow: "none",
+              }}
+            >
+              Verify Now
+            </Button>
+          ) : (
+            <Stack
+              direction="row"
+              alignItems="center"
+              justifyContent="center"
+              spacing={0.5}
+            >
+              <Typography
+                sx={{ fontSize: 12, color: "#22c55e", fontWeight: 600 }}
+              >
+                Verified
+              </Typography>
+              <Icon
+                icon="material-symbols:verified"
+                color="green"
+                fontSize={18}
+              />
+            </Stack>
+          )}
+        </Box>
+
+        {/* User Permission + Service Actions */}
+        <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1 }}>
+          <FormGroup>
+            <FormControlLabel
+              control={
+                <IOSSwitch
+                  sx={{ m: 1 }}
+                  checked={beneVerification}
+                  onClick={() =>
+                    setBeneVerificationStatus(row._id, !beneVerification)
+                  }
+                />
+              }
+              label={
+                <Stack spacing={0.25}>
+                  <Typography sx={{ fontSize: 12, fontWeight: 600 }}>
+                    {beneVerification ? "Enabled" : "Disabled"}
+                  </Typography>
+                  {/* Item 2c: "no row" and "blocked" both rendered as
+                      "Disabled" before, so an operator could not tell an
+                      un-onboarded partner from a deliberately blocked one. */}
+                  {hasAllowListRow === false && (
+                    <Typography
+                      sx={{
+                        fontSize: 10,
+                        color: "warning.main",
+                        fontWeight: 600,
+                      }}
+                    >
+                      No allow-list row - never onboarded
+                    </Typography>
+                  )}
+                </Stack>
+              }
+            />
+          </FormGroup>
+
+          <Stack spacing={0.8}>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => openViewModal(getAepsApiUser)}
+              sx={{
+                borderRadius: 2,
+                fontSize: 11,
+                borderColor: "#22c55e",
+                color: "#22c55e",
+              }}
+            >
+              View Users
+            </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => openservicesModal(row._id)}
+              sx={{
+                borderRadius: 2,
+                fontSize: 11,
+                borderColor: "primary.main",
+                color: "primary.main",
+              }}
+            >
+              Update Services
+            </Button>
           </Stack>
-          <Stack direction="row" spacing={0.5}>
-            <IconButton size="small" onClick={saveLimits} disabled={savingLimits}><SaveIcon fontSize="small" /></IconButton>
-            <Button size="small" variant="text" onClick={() => { setIsEditingLimit(false); setMinLimit(row.minTxnLimit ?? ""); setMaxLimit(row.maxTxnLimit ?? ""); }}>Cancel</Button>
-          </Stack>
-        </Stack>
-      )}
-    </Box>
-
-    <Box sx={{ backgroundColor: "#f8fafc", borderRadius: 2, p: 1.2 }}>
-      <Typography sx={{ fontSize: 11, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.8, mb: 0.5 }}>
-        Lien Amount
-      </Typography>
-      {!isEditingLien ? (
-        <Stack direction="row" alignItems="center" spacing={1}>
-          <Typography sx={{ fontSize: 12, color: "#475569" }}>₹{row.lienAmount ?? 0}</Typography>
-          <IconButton size="small" onClick={() => { setLienValue(row.lienAmount ?? ""); setIsEditingLien(true); }}>
-            <EditIcon fontSize="small" />
-          </IconButton>
-        </Stack>
-      ) : (
-        <Stack spacing={0.8}>
-          <TextField size="small" label="Lien" value={String(lienValue)}
-            onChange={(e) => setLienValue(e.target.value.replace(/\D/g, ""))} sx={{ width: 120 }} />
-          <Stack direction="row" spacing={0.5}>
-            <IconButton size="small" onClick={saveLienAmount} disabled={savingLien}><SaveIcon fontSize="small" /></IconButton>
-            <Button size="small" variant="text" onClick={() => { setIsEditingLien(false); setLienValue(row.lienAmount ?? ""); }}>Cancel</Button>
-          </Stack>
-        </Stack>
-      )}
-    </Box>
-  </Box>
-
-  <Divider sx={{ mb: 2 }} />
-
-  {/* Actions Row */}
-  <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1, mb: 2 }}>
-    {/* Edit User Data */}
-    <Button variant="contained" size="small" onClick={() => openEditModalPopup(row._id)}
-      sx={{
-        borderRadius: 2, fontSize: 11, boxShadow: "none",
-        background: (theme) =>
-            `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
-      }}>
-      Edit User
-    </Button>
-
-    {/* Callbacks */}
-    <Button variant="outlined" size="small"
-      onClick={() => { setCallbackData(row.partnerCallbackUrls || {}); setOpenCallbackModal(true); }}
-      sx={{ borderRadius: 2, fontSize: 11, borderColor: "primary.main", color: "primary.main" }}>
-      Callbacks
-    </Button>
-
-    {/* Verify / Verified */}
-    {!row.emailVerify && !row.mobileVerify ? (
-      <Button variant="contained" size="small" onClick={() => openEditModal(row._id)}
-        sx={{ borderRadius: 2, fontSize: 11, background: "linear-gradient(135deg, #f97316, #fb923c)", boxShadow: "none" }}>
-        Verify Now
-      </Button>
-    ) : (
-      <Stack direction="row" alignItems="center" justifyContent="center" spacing={0.5}>
-        <Typography sx={{ fontSize: 12, color: "#22c55e", fontWeight: 600 }}>Verified</Typography>
-        <Icon icon="material-symbols:verified" color="green" fontSize={18} />
-      </Stack>
-    )}
-  </Box>
-
-  {/* User Permission + Service Actions */}
-  <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1 }}>
-    <FormGroup>
-      <FormControlLabel
-        control={
-          <IOSSwitch sx={{ m: 1 }} checked={beneVerification}
-            onClick={() => setBeneVerificationStatus(row._id, !beneVerification)} />
-        }
-        label={<Typography sx={{ fontSize: 12, fontWeight: 600 }}>{beneVerification ? "Enabled" : "Disabled"}</Typography>}
-      />
-    </FormGroup>
-
-    <Stack spacing={0.8}>
-      <Button variant="outlined" size="small" onClick={() => openViewModal(getAepsApiUser)}
-        sx={{ borderRadius: 2, fontSize: 11, borderColor: "#22c55e", color: "#22c55e" }}>
-        View Users
-      </Button>
-      <Button variant="outlined" size="small" onClick={() => openservicesModal(row._id)}
-        sx={{ borderRadius: 2, fontSize: 11, borderColor: "primary.main", color: "primary.main" }}>
-        Update Services
-      </Button>
-    </Stack>
-  </Box>
-
-</Card>
+        </Box>
+      </Card>
       <StyledTableRow>
         {/* <TableCell sx={{ padding: "7px" }}> */}
-          {/* <Stack direction="row" alignItems="center"> */}
-            {/* <Box sx={{ ml: 2 }}>
+        {/* <Stack direction="row" alignItems="center"> */}
+        {/* <Box sx={{ ml: 2 }}>
               <Typography variant="subtitle2">
                 {" "}
                 {`${row.firstName} ${row.lastName}`} ({row.role})
@@ -1913,7 +2381,7 @@ function EcommerceBestSalesmanRow({
                 CreatedAt: {fDate(row.createdAt)}
               </Typography>
             </Box> */}
-          {/* </Stack> */}
+        {/* </Stack> */}
         {/* </TableCell> */}
         {/* <TableCell>
           <Typography variant="body2">User Code : {row?.userCode}</Typography>
@@ -1952,7 +2420,7 @@ function EcommerceBestSalesmanRow({
         </TableCell> */}
 
         {/* <TableCell> */}
-          {/* <Button
+        {/* <Button
             onClick={() => openEditModalPopup(row._id)}
             variant="contained"
             sx={{ ml: 2 }}
@@ -1960,7 +2428,7 @@ function EcommerceBestSalesmanRow({
             Edit
           </Button> */}
 
-          {/* {showModal && (
+        {/* {showModal && (
             <div style={styles.overlay}>
               <div
                 style={{
@@ -1969,11 +2437,11 @@ function EcommerceBestSalesmanRow({
                   overflowY: "auto",
                 }}
               > */}
-               
-                {/* <h2>Edit User Details</h2>
+
+        {/* <h2>Edit User Details</h2>
                 <Box component="form" sx={styles.formContainer}> */}
-                
-                  {/* <Box
+
+        {/* <Box
                     sx={{
                       display: "grid",
                       gridTemplateColumns: "repeat(4, 1fr)",
@@ -2040,7 +2508,7 @@ function EcommerceBestSalesmanRow({
                     />
                   </Box> */}
 
-                  {/* <Box
+        {/* <Box
                     sx={{
                       gridColumn: "span 2",
                       display: "grid",
@@ -2093,8 +2561,8 @@ function EcommerceBestSalesmanRow({
                       sx={{ gridColumn: "span 2" }}
                     />
                   </Box> */}
-                  {/* Wallet Balance */}
-                  {/* <Box
+        {/* Wallet Balance */}
+        {/* <Box
                     sx={{
                       gridColumn: "span 2",
                       display: "grid",
@@ -2102,10 +2570,10 @@ function EcommerceBestSalesmanRow({
                       gap: 2,
                     }}
                   ></Box> */}
-                  {/* Verification Charges (3-column layout) */}
+        {/* Verification Charges (3-column layout) */}
 
-                  {/* Wallet Balance */}
-                  {/* <Box
+        {/* Wallet Balance */}
+        {/* <Box
                     sx={{
                       gridColumn: "span 2",
                       display: "grid",
@@ -2113,8 +2581,8 @@ function EcommerceBestSalesmanRow({
                       gap: 2,
                     }}
                   ></Box> */}
-                  {/* Verification Charges (3-column layout) */}
-                  {/* <Box
+        {/* Verification Charges (3-column layout) */}
+        {/* <Box
                     sx={{
                       gridColumn: "span 2",
                       display: "grid",
@@ -2259,8 +2727,8 @@ function EcommerceBestSalesmanRow({
                     />
                   </Box> */}
 
-                  {/* Buttons */}
-                  {/* <Stack
+        {/* Buttons */}
+        {/* <Stack
                     direction="row"
                     spacing={2}
                     justifyContent="center"
@@ -2282,12 +2750,12 @@ function EcommerceBestSalesmanRow({
                       Close
                     </Button>
                   </Stack> */}
-                {/* </Box> */}
-              {/* </div>
+        {/* </Box> */}
+        {/* </div>
             </div>
           )} */}
 
-          {/* <Button
+        {/* <Button
             variant="contained"
             sx={{ ml: 2, mt: 1 }}
             onClick={() => {
@@ -2298,7 +2766,7 @@ function EcommerceBestSalesmanRow({
             Callbacks
           </Button> */}
 
-          {/* <Modal
+        {/* <Modal
             open={openCallbackModal}
             onClose={() => setOpenCallbackModal(false)}
           >

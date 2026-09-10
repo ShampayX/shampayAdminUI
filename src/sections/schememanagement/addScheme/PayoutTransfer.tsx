@@ -27,6 +27,7 @@ import { useFieldArray, useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { SchemeDetail } from "../ManageScheme/AddNewScheme";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { notifyResult } from "src/utils/apiResult";
 
 type FormValuesProps = {
   tableData: {
@@ -115,13 +116,10 @@ export default function PayoutTransfer({ tableData }: FormValuesProps) {
     };
     Api(`scheme/create_subscheme`, "POST", body, token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.responseCode == 200) {
-            enqueueSnackbar(Response.data.responseMessage);
-          } else {
-            enqueueSnackbar(Response.data.message);
-          }
-        }
+        // Item 1b/1c: every response body is `{ code, message }` now, so
+        // `responseCode` is never set - this success branch could not fire and a
+        // failed save was toasted exactly like a successful one.
+        notifyResult(enqueueSnackbar, Response, "Sub-scheme created.");
       }
     );
   };

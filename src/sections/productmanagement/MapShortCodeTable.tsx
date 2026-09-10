@@ -33,6 +33,7 @@ import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as Yup from "yup";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 // ----------------------------------------------------------------------
 
 type RowProps = {
@@ -174,15 +175,14 @@ function ProductRow({ row }: ProductRowProps) {
 
       Api(`product/map_product_shortCodeAndRoute`, "POST", body, "").then(
         (Response: any) => {
-          if (Response?.status == 200) {
-            if (Response.data.code == 200) {
-              enqueueSnackbar(Response.data.message);
-              setEditTrue(false);
-              // window.location.reload();
-              // setVdata(Response.data.data)
-              //
-            } else {
-            }
+          if (isOk(Response)) {
+            enqueueSnackbar(Response.data.message);
+            setEditTrue(false);
+            // window.location.reload();
+            // setVdata(Response.data.data)
+            //
+          } else {
+            notifyFailure(enqueueSnackbar, Response);
           }
         }
       );

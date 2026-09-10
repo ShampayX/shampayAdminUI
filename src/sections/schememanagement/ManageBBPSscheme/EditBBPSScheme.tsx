@@ -34,6 +34,7 @@ import FormProvider, {
   RHFTextField,
 } from "../../../components/hook-form";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 // ----------------------------------------------------------------------
 
 type FormValuesProps = {
@@ -47,7 +48,10 @@ export default function EditBBPSScheme() {
   const { enqueueSnackbar } = useSnackbar();
   const { state } = useLocation();
   const { rowDetail } = state || {};
-  const [currentPage, setCurrentPage] = useState(0);
+  // Item 1a: the first page is 1, not 0. The slice below is 1-based
+  // (`currentPage * pageSize - pageSize`), so a 0 here computes slice(-10, 0) and
+  // renders an empty table on first paint, and the pager received page={-1}.
+  const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
   const [isLoading, setIsLoading] = useState(false);
   const [bbpsVendor, setBPSvendor] = useState([]);
@@ -137,10 +141,10 @@ export default function EditBBPSScheme() {
   const getBBPSVendor = () => {
     let token = localStorage.getItem("token");
     Api("vendor/bbps_vendor_list", "GET", "", token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setBPSvendor(Response.data.data);
-        }
+      if (isOk(Response)) {
+        setBPSvendor(Response.data.data);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -299,11 +303,7 @@ export default function EditBBPSScheme() {
         </Stack>
       </FormProvider>
       {isLoading ? (
-        <ApiDataLoading
-          variant="table"
-          columns={activeLabels}
-          minWidth={720}
-        />
+        <ApiDataLoading variant="table" columns={activeLabels} minWidth={720} />
       ) : (
         <TableContainer sx={{ overflow: "unset" }}>
           <Table sx={{ minWidth: 720 }} size="small">
@@ -381,15 +381,11 @@ const SchemeRow = React.memo(({ row, bbpsVendor, rowDetail }: any) => {
       body,
       token
     ).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          enqueueSnackbar(Response.data.message);
-          setEditable(false);
-        } else {
-          enqueueSnackbar(Response.data.message);
-        }
+      if (isOk(Response)) {
+        enqueueSnackbar(Response.data.message);
+        setEditable(false);
       } else {
-        enqueueSnackbar("Failed");
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };

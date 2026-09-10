@@ -44,6 +44,7 @@ import {
   useDataTable,
   exportToExcel,
 } from "src/components/page-kit";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 // ----------------------------------------------------------------------
 // Utilities > Categories.
@@ -155,7 +156,9 @@ export default function EnableDisCategories() {
      without a second round trip. The API response is still what decides it. */
   const applyToggle = (id: string, value: boolean) =>
     setCategories((current) =>
-      current.map((row) => (row._id === id ? { ...row, isEnabled: value } : row))
+      current.map((row) =>
+        row._id === id ? { ...row, isEnabled: value } : row
+      )
     );
 
   const filtered = useMemo(
@@ -371,14 +374,12 @@ function CategoryRow({
 
     await Api("admin/category_switch", "POST", body, token).then(
       (Response: any) => {
-        if (Response?.status === 200) {
-          if (Response.data.code === 200) {
-            enqueueSnackbar(Response.data.message);
-            onToggled(row._id, next);
-            setOpen(false);
-          }
+        if (isOk(Response)) {
+          enqueueSnackbar(Response.data.message);
+          onToggled(row._id, next);
+          setOpen(false);
         } else {
-          enqueueSnackbar("failed", { variant: "error" });
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
