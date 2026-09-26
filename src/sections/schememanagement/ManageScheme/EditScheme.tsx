@@ -24,9 +24,25 @@ import EditADMT from "../editScheme/EditADMT";
 import EditPBPS from "../editScheme/EditPBPS";
 import EditPayIn from "../editScheme/editPAYIN";
 import { isOk, notifyFailure } from "src/utils/apiResult";
+import { EmptyState } from "src/components/page-kit";
+import BlockOutlinedIcon from "@mui/icons-material/BlockOutlined";
 // ----------------------------------------------------------------------
 
 export const SchemeDetail = React.createContext({});
+
+/**
+ * The only scheme type ShampayX has. `neonetwork` and `directagent` are the
+ * agent-network types; those roles are gone (roles are { Admin, API_User }),
+ * so they can no longer be created - ViewAllScheme offers `apiuser` alone.
+ *
+ * Legacy rows of the old types may still be in the database, and every
+ * per-category editor below renders its agent / distributor / master
+ * distributor commission columns behind `schemeType == "neonetwork" |
+ * "directagent"`. Opening such a row is therefore the one remaining way to
+ * reach those fields, so the editor refuses it rather than offering inputs
+ * that configure commissions for roles that do not exist.
+ */
+const SUPPORTED_SCHEME_TYPE = "apiuser";
 
 export default function EditScheme(props: any) {
   const { Api } = useAuthContext();
@@ -100,6 +116,9 @@ export default function EditScheme(props: any) {
     );
   };
 
+  const isSupported =
+    String(rowD?.schemeType || "").toLowerCase() === SUPPORTED_SCHEME_TYPE;
+
   return (
     <>
       <CustomBreadcrumbs
@@ -107,21 +126,25 @@ export default function EditScheme(props: any) {
         links={[
           { name: "Scheme", href: "" },
           { name: "All Scheme", href: PATH_DASHBOARD.scheme.root },
-          {
-            name: `${
-              rowD?.schemeType == "apiuser"
-                ? `API User Scheme`
-                : rowD?.schemeType == "neonetwork"
-                ? `Distributon Network Scheme`
-                : `Direct Agent Scheme `
-            }`,
-            href: "",
-          },
+          { name: "API User Scheme", href: "" },
           { name: `${rowD?.schemeID} (${rowD?.schemeDescription})`, href: "" },
         ]}
       />
 
-      <Box>
+      {!isSupported && (
+        <EmptyState
+          icon={<BlockOutlinedIcon />}
+          title="This scheme cannot be edited"
+          description={
+            `It is a "${rowD?.schemeType}" scheme - an agent-network type. ` +
+            "Agent, distributor and master distributor no longer exist on this " +
+            "platform, so its commission settings configure nothing. Create an " +
+            "API User scheme instead."
+          }
+        />
+      )}
+
+      <Box sx={{ display: isSupported ? "block" : "none" }}>
         <Tabs
           value={currentTab}
           aria-label="basic tabs example"
@@ -139,7 +162,8 @@ export default function EditScheme(props: any) {
         </Tabs>
       </Box>
       <Grid item xs={12} md={6} lg={8}>
-        {categoryLabel.map(
+        {isSupported &&
+          categoryLabel.map(
           (tab: any) =>
             tab.category_name == currentTab && (
               <SchemeDetail.Provider

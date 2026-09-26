@@ -441,7 +441,7 @@ function ProductRow({ row }: ProductRowProps) {
             onChange={(e) => (row.actionWallet = e.target.value)}
           >
             <MenuItem value={"Main Wallet"}>Main Wallet</MenuItem>
-            <MenuItem value={"AEPS Wallet"}>AEPS Wallet</MenuItem>
+            {/* "AEPS Wallet" removed - not offered anywhere in this console. */}
           </Select>
         ) : (
           <p>{row.actionWallet ? row.actionWallet : "-"}</p>

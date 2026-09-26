@@ -82,17 +82,14 @@ type FormValuesProps = {
     modeId: string;
     modeName: string;
     transactionFeeType: string;
+    /* API User is the only role ShampayX has. The bank document still carries
+       for_Agent / for_Distributor / for_M_Distributor as legacy data; nothing
+       here reads or writes them. */
     transactionFeeOption: {
       for_API_user: string;
-      for_Agent: string;
-      for_Distributor: string;
-      for_M_Distributor: string;
     };
     transactionFeeValue: {
       for_API_user: string;
-      for_Agent: string;
-      for_Distributor: string;
-      for_M_Distributor: string;
     };
   }[];
 };
@@ -168,15 +165,18 @@ export default function AddBankAccount() {
     [adminBankList]
   );
 
-  const visibleToCount = React.useMemo(() => {
+  /* The deposit window the selected bank accepts, as one readable range.
+     This replaces the old "Visible To" tile: with the roles collapsed to
+     { Admin, API_User } there is only ever one audience, so counting it
+     told the operator nothing. */
+  const depositRange = React.useMemo(() => {
     const bank = selectBank[0];
-    if (!bank) return 0;
-    return [
-      bank.visibleTo_API_User,
-      bank.visibleTo_Agent,
-      bank.visibleTo_Distributor,
-      bank.visibleTo_M_Distributor,
-    ].filter(Boolean).length;
+    if (!bank) return "—";
+    const min = Number(bank.min_Deposit_Amount ?? 0);
+    const max = Number(bank.max_Deposit_Amount ?? 0);
+    if (!min && !max) return "Not set";
+    const money = (n: number) => `₹${new Intl.NumberFormat("en-IN").format(n)}`;
+    return `${money(min)} – ${money(max)}`;
   }, [selectBank]);
   const [inputValue, setInputValue] = useState<string | null>("");
   const [modeList, setModeList] = useState([]);
@@ -272,14 +272,8 @@ export default function AddBankAccount() {
             let modes: any = [];
             let visibleFor: any = [];
             arr.push(Response.data.data[0]);
-            if (Response.data.data[0]?.visibleTo_API_User)
-              visibleFor.push("Api User");
-            if (Response.data.data[0]?.visibleTo_Agent)
-              visibleFor.push("Agent");
-            if (Response.data.data[0]?.visibleTo_Distributor)
-              visibleFor.push("Distributor");
-            if (Response.data.data[0]?.visibleTo_M_Distributor)
-              visibleFor.push("Master Distributor");
+            /* API User is the only audience there is. */
+            visibleFor.push("Api User");
             Response.data.data[0]?.modes_of_transfer?.map((row: any) => {
               modes.push({ _id: row.modeId, transfer_mode_name: row.modeName });
             });
@@ -314,11 +308,7 @@ export default function AddBankAccount() {
       adminBankList.map((item: any) => {
         if (item._id === val) {
           arr.push(item);
-          if (item?.visibleTo_API_User) visibleFor.push("Api User");
-          if (item?.visibleTo_Agent) visibleFor.push("Agent");
-          if (item?.visibleTo_Distributor) visibleFor.push("Distributor");
-          if (item?.visibleTo_M_Distributor)
-            visibleFor.push("Master Distributor");
+          visibleFor.push("Api User");
           item?.modes_of_transfer?.map((row: any) => {
             modes.push({ _id: row.modeId, transfer_mode_name: row.modeName });
           });
@@ -462,9 +452,9 @@ export default function AddBankAccount() {
               icon={<SwapHorizOutlinedIcon />}
             />
             <StatCard
-              label="Visible To"
-              value={visibleToCount}
-              caption="Roles that can see this bank"
+              label="Deposit Range"
+              value={depositRange}
+              caption="Accepted per deposit on this bank"
               tone="neutral"
               icon={<VisibilityOutlinedIcon />}
             />
@@ -648,15 +638,29 @@ export default function AddBankAccount() {
                     >
                       Modes of Transfer
                     </Typography>
-                    <Grid container spacing={2}>
-                      {selectBank.map((row: any) =>
-                        row?.modes_of_transfer.map((item: any) => (
-                          <Grid item xs={12} sm={6} md={4} key={item._id}>
-                            <ModeCustome modeData={item} />
-                          </Grid>
-                        ))
-                      )}
-                    </Grid>
+                    {selectBank.some(
+                      (row: any) => (row?.modes_of_transfer || []).length
+                    ) ? (
+                      <Grid container spacing={1.5} alignItems="stretch">
+                        {selectBank.map((row: any) =>
+                          (row?.modes_of_transfer || []).map((item: any) => (
+                            <Grid item xs={12} sm={6} lg={4} key={item._id}>
+                              <ModeCustome modeData={item} />
+                            </Grid>
+                          ))
+                        )}
+                      </Grid>
+                    ) : (
+                      <Typography
+                        sx={{
+                          fontSize: 12.5,
+                          color: "text.secondary",
+                          py: 2,
+                        }}
+                      >
+                        No modes of transfer are configured on this bank.
+                      </Typography>
+                    )}
                   </Box>
                 </Grid>
               </Grid>
@@ -1060,12 +1064,10 @@ const BankAddComponent = React.memo(
         setExpanded(newExpanded ? panel : false);
       };
 
-    const visibleTo = [
-      "Api User",
-      "Agent",
-      "Distributor",
-      "Master Distributor",
-    ];
+    /* Roles collapsed to { Admin, API_User }. A bank is visible to partners,
+       full stop - so there is nothing left to pick and the picker is gone.
+       The fee section below configures the one audience directly. */
+    const visibleTo = ["Api User"];
 
     const accountValidate = Yup.object().shape({
       bank: Yup.object({
@@ -1143,15 +1145,9 @@ const BankAddComponent = React.memo(
             transactionFeeType: modetype,
             transactionFeeOption: {
               for_API_user: "",
-              for_Agent: "",
-              for_Distributor: "",
-              for_M_Distributor: "",
             },
             transactionFeeValue: {
               for_API_user: "",
-              for_Agent: "",
-              for_Distributor: "",
-              for_M_Distributor: "",
             },
           })
         : watch("modes_of_transfer").map((item: any, index: any) => {
@@ -1173,16 +1169,13 @@ const BankAddComponent = React.memo(
             branch_name: data.branch,
             address: data.bankAddress,
           },
-          visibleTo_Agent: watch("visibleto").includes("Agent") ? true : false,
-          visibleTo_Distributor: watch("visibleto").includes("Distributor")
-            ? true
-            : false,
-          visibleTo_M_Dist: watch("visibleto").includes("Master Distributor")
-            ? true
-            : false,
-          visibleTo_API_User: watch("visibleto").includes("Api User")
-            ? true
-            : false,
+          /* The three dead roles are sent as false rather than omitted: the
+             schema defaults each of them to true, so leaving them out would
+             write a bank that is "visible to" roles that no longer exist. */
+          visibleTo_Agent: false,
+          visibleTo_Distributor: false,
+          visibleTo_M_Dist: false,
+          visibleTo_API_User: true,
           min_Deposit_Amount: data.minDepositeAmount,
           max_Deposit_Amount: data.maxDepositeAmount,
           modes_of_transfer: data.modes_of_transfer,
@@ -1313,118 +1306,80 @@ const BankAddComponent = React.memo(
                   />
                 )}
               />
-              <RHFAutocomplete
-                name="visibletos"
-                multiple
-                freeSolo
-                onChange={(event, newValue: any) =>
-                  setValue("visibleto", newValue)
-                }
-                options={visibleTo}
-                getOptionLabel={(option: any) => option}
-                renderOption={(props, option) => (
-                  <Box
-                    component="li"
-                    sx={{ "& > img": { mr: 2, flexShrink: 0 } }}
-                    {...props}
-                  >
-                    {option}
-                  </Box>
-                )}
-                size="small"
-                renderInput={(params) => (
-                  <RHFTextField
-                    name="visibleto"
-                    label="Select Visible To"
-                    {...params}
-                  />
-                )}
-              />
             </Grid>
 
-            {Array.isArray(watch("visibleto")) &&
-              watch("visibleto").length > 0 &&
-              watch("visibleto").map((client: string, clientIndex: number) => (
+            {/* One fee panel per mode. This used to be one accordion per
+                audience, each repeating every mode inside it - with a single
+                audience left there is nothing to nest, so the mode is the
+                panel. */}
+            {fields.map((field: any, index: any) => {
+              const mode = watch("modes_of_transfer")[index];
+              return (
                 <Accordion
-                  key={clientIndex}
-                  expanded={expanded === `panel${clientIndex + 1}`}
-                  onChange={handleChange(`panel${clientIndex + 1}`)}
+                  key={field.id}
+                  expanded={expanded === `panel${index + 1}`}
+                  onChange={handleChange(`panel${index + 1}`)}
                 >
                   <AccordionSummary
-                    aria-controls={`panel${clientIndex}d-content`}
-                    id={`panel${clientIndex}d-header`}
+                    aria-controls={`panel${index}d-content`}
+                    id={`panel${index}d-header`}
                   >
-                    {client}
+                    <Stack
+                      direction="row"
+                      alignItems="center"
+                      spacing={1}
+                      sx={{ width: "100%" }}
+                    >
+                      <Typography variant="subtitle2">
+                        {mode?.modeName}
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        sx={{ color: "text.secondary" }}
+                      >
+                        ({mode?.transactionFeeType})
+                      </Typography>
+                    </Stack>
                   </AccordionSummary>
-                  {fields.map((field: any, index: any) => (
-                    <AccordionDetails key={field.id}>
-                      <Stack
-                        flexDirection={"row"}
-                        alignItems={"center"}
-                        justifyContent={"center"}
-                        mb={1}
-                      >
-                        <Typography variant="subtitle1">
-                          {watch("modes_of_transfer")[index].modeName}
+                  <AccordionDetails>
+                    <Typography
+                      variant="caption"
+                      sx={{ color: "text.secondary" }}
+                    >
+                      Applies to API Users.
+                    </Typography>
+                    <Box
+                      sx={{ display: "flex", gap: 3, mt: 1 }}
+                      justifyContent={"space-between"}
+                    >
+                      <Stack>
+                        <Typography variant="body2">
+                          {mode?.transactionFeeType} Type
                         </Typography>
-                        <Typography variant="subtitle2">
-                          (
-                          {watch("modes_of_transfer")[index].transactionFeeType}
-                          )
-                        </Typography>
+                        <RHFRadioGroup
+                          name={`modes_of_transfer.${index}.transactionFeeOption.for_API_user`}
+                          sx={{ display: "flex", flexDirection: "column" }}
+                          options={[
+                            { label: "Flat", value: "flat" },
+                            { label: "Percentage", value: "percentage" },
+                          ]}
+                        />
                       </Stack>
-                      <Box
-                        sx={{ display: "flex" }}
-                        justifyContent={"space-around"}
-                      >
-                        <Stack>
-                          <Typography variant="body1">
-                            {
-                              watch("modes_of_transfer")[index]
-                                .transactionFeeType
-                            }{" "}
-                            Type :
-                          </Typography>
-                          <RHFRadioGroup
-                            name={`modes_of_transfer.${index}.transactionFeeOption.${
-                              client === "Agent"
-                                ? "for_Agent"
-                                : client === "Distributor"
-                                ? "for_Distributor"
-                                : client === "Master Distributor"
-                                ? "for_M_Distributor"
-                                : "for_API_user"
-                            }`}
-                            sx={{ display: "flex", flexDirection: "column" }}
-                            options={[
-                              { label: "Flat", value: "flat" },
-                              { label: "Percentage", value: "percentage" },
-                            ]}
-                          />
-                        </Stack>
-                        <Stack>
-                          <Typography variant="body1">FeeValue</Typography>
-                          <RHFTextField
-                            name={`modes_of_transfer.${index}.transactionFeeValue.${
-                              client === "Agent"
-                                ? "for_Agent"
-                                : client === "Distributor"
-                                ? "for_Distributor"
-                                : client === "Master Distributor"
-                                ? "for_M_Distributor"
-                                : "for_API_user"
-                            }`}
-                            sx={{ mt: 1 }}
-                            placeholder="Value"
-                            label="Value"
-                            size="small"
-                          />
-                        </Stack>
-                      </Box>
-                    </AccordionDetails>
-                  ))}
+                      <Stack sx={{ flexGrow: 1, maxWidth: 200 }}>
+                        <Typography variant="body2">Fee Value</Typography>
+                        <RHFTextField
+                          name={`modes_of_transfer.${index}.transactionFeeValue.for_API_user`}
+                          sx={{ mt: 1 }}
+                          placeholder="Value"
+                          label="Value"
+                          size="small"
+                        />
+                      </Stack>
+                    </Box>
+                  </AccordionDetails>
                 </Accordion>
-              ))}
+              );
+            })}
 
             <LoadingButton
               fullWidth
@@ -1460,12 +1415,10 @@ const BankEditComponent = React.memo(
         setExpanded(newExpanded ? panel : false);
       };
 
-    const visibleTo = [
-      "Api User",
-      "Agent",
-      "Distributor",
-      "Master Distributor",
-    ];
+    /* Roles collapsed to { Admin, API_User }. A bank is visible to partners,
+       full stop - so there is nothing left to pick and the picker is gone.
+       The fee section below configures the one audience directly. */
+    const visibleTo = ["Api User"];
 
     const accountValidate = Yup.object().shape({
       bank: Yup.object({
@@ -1544,15 +1497,9 @@ const BankEditComponent = React.memo(
             transactionFeeType: modetype,
             transactionFeeOption: {
               for_API_user: "",
-              for_Agent: "",
-              for_Distributor: "",
-              for_M_Distributor: "",
             },
             transactionFeeValue: {
               for_API_user: "",
-              for_Agent: "",
-              for_Distributor: "",
-              for_M_Distributor: "",
             },
           })
         : watch("modes_of_transfer").map((item: any, index: any) => {
@@ -1573,16 +1520,13 @@ const BankEditComponent = React.memo(
             branch_name: data.branch,
             address: data.bankAddress,
           },
-          visibleTo_Agent: watch("visibleto").includes("Agent") ? true : false,
-          visibleTo_Distributor: watch("visibleto").includes("Distributor")
-            ? true
-            : false,
-          visibleTo_M_Dist: watch("visibleto").includes("Master Distributor")
-            ? true
-            : false,
-          visibleTo_API_User: watch("visibleto").includes("Api User")
-            ? true
-            : false,
+          /* The three dead roles are sent as false rather than omitted: the
+             schema defaults each of them to true, so leaving them out would
+             write a bank that is "visible to" roles that no longer exist. */
+          visibleTo_Agent: false,
+          visibleTo_Distributor: false,
+          visibleTo_M_Dist: false,
+          visibleTo_API_User: true,
           min_Deposit_Amount: data.minDepositeAmount,
           max_Deposit_Amount: data.maxDepositeAmount,
           modes_of_transfer: data.modes_of_transfer,

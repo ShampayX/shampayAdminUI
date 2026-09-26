@@ -60,7 +60,6 @@ type RowProps = {
   company_name: string;
   selfie: any;
   main_wallet_amount: string;
-  AEPS_wallet_amount: string;
   fingPayAEPSKycStatus: string;
   fingPayAPESRegistrationStatus: string;
   userCode: string;
@@ -326,30 +325,15 @@ function UserDetail({ row }: ChildProps) {
             <Label variant="soft" color={"primary"} sx={walletStyle}>
               Main = {fIndianCurrency(row?.main_wallet_amount) || 0}
             </Label>
-            <Label variant="soft" color={"warning"} sx={walletStyle}>
-              Aeps = {fIndianCurrency(row?.AEPS_wallet_amount) || 0}
-            </Label>
           </Stack>
         </TableCell>
         <TableCell sx={{ textAlign: "center" }}>Yes</TableCell>
         <TableCell sx={{ textAlign: "center" }}>
           <Stack gap={1}>
-            <LoadingButton
-              variant="contained"
-              onClick={() => {
-                if (row.role === "agent") {
-                  handleClick();
-                  ViewAEPS();
-                }
-              }}
-              disabled={
-                row.role !== "agent" ||
-                isLoading ||
-                !(row.fingPayAEPSKycStatus && row.fingPayAPESRegistrationStatus)
-              }
-            >
-              AEPS Attendance
-            </LoadingButton>
+            {/* The "AEPS Attendance" button was removed. It was gated on
+                `row.role === "agent"`, and there is no agent role any more -
+                roles are { Admin, API_User } - so it could only ever render
+                disabled. `admin/getAepsUserAttendance` is untouched. */}
             <LoadingButton
               variant="contained"
               onClick={() => window.open(row?.eAgreement_Signed_URL)}
@@ -622,14 +606,6 @@ function UserDetail({ row }: ChildProps) {
                               >
                                 Main ={" "}
                                 {fIndianCurrency(row?.main_wallet_amount) || 0}
-                              </Label>
-                              <Label
-                                variant="soft"
-                                color={"warning"}
-                                sx={walletStyle}
-                              >
-                                Aeps ={" "}
-                                {fIndianCurrency(row?.AEPS_wallet_amount) || 0}
                               </Label>
                             </Stack>
                           </TableCell>

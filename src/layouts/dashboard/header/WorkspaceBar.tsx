@@ -80,7 +80,6 @@ export default function WorkspaceBar() {
 
   const [allUserBalance, setAllUserBalance] = useState<{
     total_main_wallet_amount?: number;
-    total_aeps_wallet_amount?: number;
   }>({});
 
   /* ---------------- platform float ---------------- */
@@ -278,15 +277,18 @@ export default function WorkspaceBar() {
               : "0 6px 24px rgba(0, 0, 0, 0.5)",
           }}
         >
-          {/* float */}
+          {/* float - main wallet only. The AEPS balance was removed: the AEPS
+              wallet is not surfaced anywhere in this console. The endpoint
+              still returns total_aeps_wallet_amount; nothing reads it. */}
           <Stack
             direction="row"
             alignItems="center"
-            divider={<Divider orientation="vertical" flexItem sx={{ my: 0.5 }} />}
             sx={{ display: { xs: "none", md: "flex" } }}
           >
-            <Balance label="Main" value={allUserBalance.total_main_wallet_amount || 0} />
-            <Balance label="AEPS" value={allUserBalance.total_aeps_wallet_amount || 0} />
+            <Balance
+              label="Main"
+              value={allUserBalance.total_main_wallet_amount || 0}
+            />
           </Stack>
 
           <Tooltip title="Refresh balances">

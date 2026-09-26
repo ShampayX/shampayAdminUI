@@ -119,10 +119,10 @@ export default function CustomUserAutocomplete({
               {sentenceCase(option?.lastName || "")}
             </Typography>
             <Typography variant="body2">
+              {/* Roles are { Admin, API_User } - there is no longer a role
+                  whose stored value needs relabelling here. */}
               {sentenceCase(
-                option?.role == "m_distributor"
-                  ? "Master Distributor"
-                  : option?.role || ""
+                option?.role == "API_User" ? "API User" : option?.role || ""
               )}{" "}
               ({option?.userCode})
             </Typography>

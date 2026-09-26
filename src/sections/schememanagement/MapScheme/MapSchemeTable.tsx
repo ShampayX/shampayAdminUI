@@ -54,11 +54,9 @@ export type SchemeMappingRow = {
   mapComment: string;
 };
 
+/* Roles are { Admin, API_User } - the agent-network roles are gone. */
 const ROLE_LABELS: Record<string, string> = {
-  agent: "Agent",
-  distributor: "Distributor",
-  m_distributor: "Master Distributor",
-  directagent: "Direct Agent",
+  Admin: "Admin",
 };
 
 export const roleLabel = (role: string) => ROLE_LABELS[role] || "API User";

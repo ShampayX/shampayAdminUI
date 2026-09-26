@@ -59,6 +59,8 @@ import {
 // and AEPS wallet balance recorded for that day. That is the whole payload -
 // there is no status flag, no account type beyond the user's role and no
 // effective date separate from `createdAt` - so none of those are shown.
+// Only the main wallet is rendered; the AEPS wallet is not surfaced anywhere
+// in this console.
 //
 // The endpoint pages server-side and filters by userId + date range only, so
 // the summary sums below are page-scoped and captioned as such.
@@ -242,19 +244,19 @@ export default function UserWiseClosingBal() {
 
   /* ================= DERIVED (page-scoped) ================= */
 
+  /* The AEPS wallet is not surfaced in this console, so only the main wallet
+     is summed. `AEPS_wallet_amount` is still on the payload and ignored. */
   const totals = useMemo(() => {
     const accounts = new Set<string>();
     let main = 0;
-    let aeps = 0;
 
     balanceData.forEach((row) => {
       const id = row?.userId?._id || row?.userId?.userCode;
       if (id) accounts.add(String(id));
       main += Number(row?.main_wallet_amount || 0);
-      aeps += Number(row?.AEPS_wallet_amount || 0);
     });
 
-    return { accounts: accounts.size, main, aeps };
+    return { accounts: accounts.size, main };
   }, [balanceData]);
 
   const hasFilter = Boolean(
@@ -272,7 +274,7 @@ export default function UserWiseClosingBal() {
       <Box sx={{ p: { xs: 2, md: 3 } }}>
         <PageHeader
           title="Starting Balances"
-          subtitle="Day-wise opening wallet balance recorded for each account, main and AEPS."
+          subtitle="Day-wise opening main wallet balance recorded for each account."
         />
 
         <FormProvider methods={methods} onSubmit={handleSubmit(onSubmit)}>
@@ -441,13 +443,6 @@ export default function UserWiseClosingBal() {
             tone="primary"
             icon={<AccountBalanceWalletOutlinedIcon />}
           />
-          <StatCard
-            label="AEPS Wallet"
-            value={money(totals.aeps)}
-            caption="Sum on this page"
-            tone="warning"
-            icon={<SavingsOutlinedIcon />}
-          />
         </StatGrid>
 
         {loading ? (
@@ -494,8 +489,6 @@ export default function UserWiseClosingBal() {
               { id: "role", label: "Account Type" },
               { id: "date", label: "Recorded On" },
               { id: "main", label: "Main Wallet", align: "right" },
-              { id: "aeps", label: "AEPS Wallet", align: "right" },
-              { id: "total", label: "Total", align: "right" },
             ]}
             footer={
               <TablePagination
@@ -514,7 +507,6 @@ export default function UserWiseClosingBal() {
           >
             {balanceData.map((row: any, index: number) => {
               const main = Number(row?.main_wallet_amount || 0);
-              const aeps = Number(row?.AEPS_wallet_amount || 0);
 
               return (
                 <KitRow key={row?._id || index}>
@@ -567,22 +559,6 @@ export default function UserWiseClosingBal() {
 
                   <TableCell align="right">
                     <BalanceAmount value={main} tone="primary" />
-                  </TableCell>
-
-                  <TableCell align="right">
-                    <BalanceAmount value={aeps} tone="warning" />
-                  </TableCell>
-
-                  <TableCell align="right">
-                    <Typography
-                      sx={{
-                        fontSize: 14,
-                        fontWeight: 700,
-                        color: theme.palette.text.primary,
-                      }}
-                    >
-                      {money(main + aeps)}
-                    </Typography>
                   </TableCell>
                 </KitRow>
               );

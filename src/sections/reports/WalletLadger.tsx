@@ -138,7 +138,8 @@ export default function AllTransactionRecords() {
     date: "",
     clientRefId: "",
     walletId: "",
-    walletType: "",
+    /* Pinned - see the note where the wallet-type filter used to be. */
+    walletType: "MAIN",
     startDate: null,
     endDate: null,
     formattedEndDate: null,
@@ -185,7 +186,7 @@ export default function AllTransactionRecords() {
         getValues("partnerId") ||
         "",
       clientRefId: getValues("clientRefId") || "",
-      walletType: getValues("walletType") || "",
+      walletType: "MAIN",
       startDate: formattedStartDate,
       endDate: formattedEndDate,
     };
@@ -286,7 +287,7 @@ export default function AllTransactionRecords() {
         data.partnerId,
       clientRefId: data.clientRefId,
       walletId: data.walletId,
-      walletType: data.walletType,
+      walletType: "MAIN",
       startDate: formattedStartDate || "",
       endDate: formattedEndDate || "",
     };
@@ -397,21 +398,10 @@ export default function AllTransactionRecords() {
             </FilterSlot>
           </LocalizationProvider>
 
-          <FilterSlot icon={<AccountBalanceWalletOutlinedIcon />}>
-            <TextField
-              select
-              fullWidth
-              variant="standard"
-              value={watch("walletType") || ""}
-              onChange={(event) => setValue("walletType", event.target.value)}
-              InputProps={{ disableUnderline: true }}
-              SelectProps={{ displayEmpty: true }}
-            >
-              <MenuItem value="">All Wallets</MenuItem>
-              <MenuItem value="MAIN">Main</MenuItem>
-              <MenuItem value="AEPS">AEPS</MenuItem>
-            </TextField>
-          </FilterSlot>
+          {/* The wallet-type filter is gone. It offered All / Main / AEPS, and
+              with the AEPS wallet out of this console there is one option
+              left - so `walletType` is pinned to "MAIN" in the request below
+              and the screen lists main-wallet movement only. */}
 
           <FilterSlot icon={<PersonSearchOutlinedIcon />} minWidth={220}>
             <Box sx={{ position: "relative" }}>
@@ -627,11 +617,15 @@ const WalletRow = React.memo(({ row }: any) => {
     }
   };
 
+  /* The Agent / Distributor / Master Distributor columns are gone: those roles
+     no longer exist, so `transaction.agentDetails`, `.distributorDetails` and
+     `.masterDistributorDetails` can only ever be empty. `partnerDetails` is
+     the surviving block and carries the opening and closing balance only -
+     it has no commission, credit or TDS field, so those rows are not shown.
+     GST and TDS are top-level on the transaction and already have a column. */
   const tableLabels = [
     { id: "Product/TransactionType", label: "Product/TransactionType " },
-    { id: "Agent Details", label: "Agent Details" },
-    { id: "Distributor Details", label: "Distributor Details " },
-    { id: "Master Distributor Details", label: "Master Distributor Details " },
+    { id: "Partner Details", label: "Partner Details" },
     { id: "BeneficiaryDetails", label: "BeneficiaryDetails" },
     { id: "credit", label: "Credit/Debit " },
     { id: "GST/TDS", label: "GST/TDS " },
@@ -764,15 +758,7 @@ const WalletRow = React.memo(({ row }: any) => {
                 noWrap
                 sx={{ fontSize: 11.5, color: "text.secondary" }}
               >
-                {row?.to?.id?.role === "agent"
-                  ? "Agent"
-                  : row?.to?.id?.role === "distributor"
-                  ? "Distributor"
-                  : row?.to?.id?.role === "m_distributor"
-                  ? "Master Distributor"
-                  : row?.to?.id?.role === "API_User"
-                  ? "API User"
-                  : "Admin"}
+                {row?.to?.id?.role === "API_User" ? "API User" : "Admin"}
                 {row?.to?.id?.userCode && ` (${row?.to?.id?.userCode})`}
               </Typography>
             </Stack>
@@ -807,18 +793,12 @@ const WalletRow = React.memo(({ row }: any) => {
           >
             -{fIndianCurrency(row?.from?.amount) || "0"}
           </Typography>
+          {/* Main wallet only - the AEPS wallet is not surfaced in this
+              console, so the walletType branch is gone. */}
           <Typography sx={{ fontSize: 11.5, color: "text.secondary" }}>
-            {fIndianCurrency(
-              row?.to?.walletType === "MAIN"
-                ? row?.from?.oldMainWalletBalance
-                : row?.from?.oldAepsWalletBalance
-            ) || "0"}
+            {fIndianCurrency(row?.from?.oldMainWalletBalance) || "0"}
             {" / "}
-            {fIndianCurrency(
-              row?.to?.walletType === "MAIN"
-                ? row?.from?.newMainWalletBalance
-                : row?.from?.newAepsWalletBalance
-            ) || "0"}
+            {fIndianCurrency(row?.from?.newMainWalletBalance) || "0"}
           </Typography>
         </TableCell>
 
@@ -830,17 +810,9 @@ const WalletRow = React.memo(({ row }: any) => {
             +{fIndianCurrency(row?.to?.amount) || "0"}
           </Typography>
           <Typography sx={{ fontSize: 11.5, color: "text.secondary" }}>
-            {fIndianCurrency(
-              row?.to?.walletType === "MAIN"
-                ? row?.to?.oldMainWalletBalance
-                : row?.to?.oldAepsWalletBalance
-            ) || "0"}
+            {fIndianCurrency(row?.to?.oldMainWalletBalance) || "0"}
             {" / "}
-            {fIndianCurrency(
-              row?.to?.walletType === "MAIN"
-                ? row?.to?.newMainWalletBalance
-                : row?.to?.newAepsWalletBalance
-            ) || "0"}
+            {fIndianCurrency(row?.to?.newMainWalletBalance) || "0"}
           </Typography>
         </TableCell>
 
@@ -946,11 +918,7 @@ const WalletRow = React.memo(({ row }: any) => {
                     <Stack direction={"row"} justifyContent={"space-between"}>
                       <Typography variant="body2">Opening:</Typography>
                       <Typography variant="body2">
-                        {fIndianCurrency(
-                          row?.to?.walletType == "MAIN"
-                            ? row?.from?.oldMainWalletBalance
-                            : row?.from?.oldAepsWalletBalance
-                        ) || ""}
+                        {fIndianCurrency(row?.from?.oldMainWalletBalance) || ""}
                       </Typography>
                     </Stack>
                     <Stack direction={"row"} justifyContent={"space-between"}>
@@ -962,11 +930,8 @@ const WalletRow = React.memo(({ row }: any) => {
                     <Stack direction={"row"} justifyContent={"space-between"}>
                       <Typography variant="body2">Closing :</Typography>
                       <Typography variant="body2">
-                        {fIndianCurrency(
-                          row?.to?.walletType == "MAIN"
-                            ? row?.from?.newMainWalletBalance
-                            : row?.from?.newAepsWalletBalance
-                        ) || "0"}
+                        {fIndianCurrency(row?.from?.newMainWalletBalance) ||
+                          "0"}
                       </Typography>
                     </Stack>
                   </StyledTableCell>
@@ -988,13 +953,7 @@ const WalletRow = React.memo(({ row }: any) => {
                           {row?.to?.id?.firstName} {row?.to?.id?.lastName}
                         </Typography>
                         <Typography noWrap variant="body2">
-                          {row?.to?.id?.role === "agent"
-                            ? "Agent"
-                            : row?.to?.id?.role === "distributor"
-                            ? "Distributor"
-                            : row?.to?.id?.role === "m_distributor"
-                            ? "Master Distributor"
-                            : row?.to?.id?.role === "API_User"
+                          {row?.to?.id?.role === "API_User"
                             ? "API User"
                             : "ADMIN"}
                         </Typography>
@@ -1021,11 +980,7 @@ const WalletRow = React.memo(({ row }: any) => {
                     <Stack direction={"row"} justifyContent={"space-between"}>
                       <Typography variant="body2">Opening:</Typography>
                       <Typography variant="body2">
-                        {fIndianCurrency(
-                          row?.to?.walletType == "MAIN"
-                            ? row?.to?.oldMainWalletBalance
-                            : row?.to?.oldAepsWalletBalance
-                        ) || "0"}
+                        {fIndianCurrency(row?.to?.oldMainWalletBalance) || "0"}
                       </Typography>
                     </Stack>
                     <Stack direction={"row"} justifyContent={"space-between"}>
@@ -1037,11 +992,7 @@ const WalletRow = React.memo(({ row }: any) => {
                     <Stack direction={"row"} justifyContent={"space-between"}>
                       <Typography variant="body2">Closing :</Typography>
                       <Typography variant="body2">
-                        {fIndianCurrency(
-                          row?.to?.walletType == "MAIN"
-                            ? row?.to?.newMainWalletBalance
-                            : row?.to?.newAepsWalletBalance
-                        ) || "0"}
+                        {fIndianCurrency(row?.to?.newMainWalletBalance) || "0"}
                       </Typography>
                     </Stack>
                   </StyledTableCell>
@@ -1077,109 +1028,15 @@ const WalletRow = React.memo(({ row }: any) => {
                                 <Typography noWrap variant="body2">
                                   <strong> Opening: </strong>
                                   {fIndianCurrency(
-                                    row?.transaction?.agentDetails
+                                    row?.transaction?.partnerDetails
                                       ?.oldMainWalletBalance
                                   ) || "0"}
                                 </Typography>
                                 <Typography noWrap variant="body2">
                                   <strong> Closing: </strong>
                                   {fIndianCurrency(
-                                    row?.transaction?.agentDetails
+                                    row?.transaction?.partnerDetails
                                       ?.newMainWalletBalance
-                                  ) || "0"}
-                                </Typography>
-                                <Typography noWrap variant="body2">
-                                  <strong> Commission: </strong>
-                                  {fIndianCurrency(
-                                    row?.transaction?.agentDetails
-                                      ?.commissionAmount
-                                  ) || "0"}
-                                </Typography>
-                                <Typography noWrap variant="body2">
-                                  <strong> Credit: </strong>
-                                  {fIndianCurrency(
-                                    row?.transaction?.agentDetails
-                                      ?.creditedAmount
-                                  ) || "0"}
-                                </Typography>
-                                <Typography noWrap variant="body2">
-                                  <strong> TDS: </strong>
-                                  {fIndianCurrency(
-                                    row?.transaction?.agentDetails?.TDSAmount
-                                  ) || "0"}
-                                </Typography>
-                              </TableCell>
-                              <TableCell>
-                                <Typography noWrap variant="body2">
-                                  <strong> Opening: </strong>
-                                  {fIndianCurrency(
-                                    row?.transaction?.distributorDetails
-                                      ?.oldMainWalletBalance
-                                  ) || "0"}
-                                </Typography>
-                                <Typography noWrap variant="body2">
-                                  <strong> Closing: </strong>
-                                  {fIndianCurrency(
-                                    row?.transaction?.distributorDetails
-                                      ?.newMainWalletBalance
-                                  ) || "0"}
-                                </Typography>
-                                <Typography noWrap variant="body2">
-                                  <strong> Commission: </strong>
-                                  {fIndianCurrency(
-                                    row?.transaction?.distributorDetails
-                                      ?.commissionAmount
-                                  ) || "0"}
-                                </Typography>
-                                <Typography noWrap variant="body2">
-                                  <strong> Credit: </strong>
-                                  {fIndianCurrency(
-                                    row?.transaction?.distributorDetails
-                                      ?.creditedAmount
-                                  ) || "0"}
-                                </Typography>
-                                <Typography noWrap variant="body2">
-                                  <strong> TDS: </strong>
-                                  {fIndianCurrency(
-                                    row?.transaction?.distributorDetails
-                                      ?.TDSAmount
-                                  ) || "0"}
-                                </Typography>
-                              </TableCell>
-                              <TableCell>
-                                <Typography noWrap variant="body2">
-                                  <strong> Opening: </strong>
-                                  {fIndianCurrency(
-                                    row?.transaction?.masterDistributorDetails
-                                      ?.oldMainWalletBalance
-                                  ) || "0"}
-                                </Typography>
-                                <Typography noWrap variant="body2">
-                                  <strong> Closing: </strong>
-                                  {fIndianCurrency(
-                                    row?.transaction?.masterDistributorDetails
-                                      ?.newMainWalletBalance
-                                  ) || "0"}
-                                </Typography>
-                                <Typography noWrap variant="body2">
-                                  <strong> Commission: </strong>
-                                  {fIndianCurrency(
-                                    row?.transaction?.masterDistributorDetails
-                                      ?.commissionAmount
-                                  ) || "0"}
-                                </Typography>
-                                <Typography noWrap variant="body2">
-                                  <strong> Credit: </strong>
-                                  {fIndianCurrency(
-                                    row?.transaction?.masterDistributorDetails
-                                      ?.creditedAmount
-                                  ) || "0"}
-                                </Typography>
-                                <Typography noWrap variant="body2">
-                                  <strong> TDS: </strong>
-                                  {fIndianCurrency(
-                                    row?.transaction?.masterDistributorDetails
-                                      ?.TDSAmount
                                   ) || "0"}
                                 </Typography>
                               </TableCell>

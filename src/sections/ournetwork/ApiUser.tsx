@@ -159,7 +159,6 @@ type RowProps = {
   emailVerify: string;
   mobileVerify: string;
   main_wallet_amount: number;
-  AEPS_wallet_amount: number;
   isBeneSearchInDatabase: boolean;
   allowed: boolean;
   userCode: string;
@@ -545,7 +544,6 @@ export default function ApiUser() {
                 PAN: row.PANnumber || "",
                 Verified: row.emailVerify && row.mobileVerify ? "Yes" : "No",
                 "Main Wallet": row.main_wallet_amount ?? 0,
-                "AEPS Wallet": row.AEPS_wallet_amount ?? 0,
                 Onboarded: row.createdAt ? fDate(row.createdAt) : "",
               })),
               "ecosystem-api-users",
@@ -979,10 +977,7 @@ export default function ApiUser() {
                     primary={
                       "Rs." + (fIndianCurrency(row.main_wallet_amount) || "0")
                     }
-                    secondary={
-                      "AEPS Rs." +
-                      (fIndianCurrency(row.AEPS_wallet_amount) || "0")
-                    }
+                    secondary="Main wallet"
                   />
                 </TableCell>
 
@@ -1758,7 +1753,6 @@ function EcommerceBestSalesmanRow({
             PANnumber: Response.data.data.PANnumber || "",
             company_name: Response.data.data.company_name || "",
             companyAddress: Response.data.data.companyAddress || "",
-            AEPS_wallet_amount: Response.data.data.AEPS_wallet_amount || "",
             main_wallet_amount: Response.data.data.main_wallet_amount || "",
             bin_verify_charges: Response.data.data.bin_verify_charges || "",
             beneValidationCharge: Response.data.data.beneValidationCharge || "",
@@ -2029,9 +2023,6 @@ function EcommerceBestSalesmanRow({
               }}
             >
               Wallet Balance
-            </Typography>
-            <Typography sx={{ fontSize: 12, color: "#475569" }}>
-              AEPS: ₹{fIndianCurrency(row.AEPS_wallet_amount) || "0"}
             </Typography>
             <Typography sx={{ fontSize: 12, color: "#475569" }}>
               Main: ₹{fIndianCurrency(row.main_wallet_amount) || "0"}

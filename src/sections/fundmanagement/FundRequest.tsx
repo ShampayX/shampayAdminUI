@@ -284,7 +284,7 @@ export default function GeneralFilePage() {
     };
 
     Api(
-      `admin/fundManagement/get_pending_fund_requests`,
+      `admin/fundManagement/get_p_fnd_requests`,
       "POST",
       body,
       token
@@ -420,7 +420,7 @@ export default function GeneralFilePage() {
     };
 
     Api(
-      `admin/fundManagement/get_pending_fund_requests`,
+      `admin/fundManagement/get_p_fnd_requests`,
       "POST",
       body,
       token

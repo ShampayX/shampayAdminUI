@@ -54,9 +54,123 @@ import useCopyToClipboard from "src/hooks/useCopyToClipboard";
 import Iconify from "src/components/iconify";
 import { useAuthContext } from "src/auth/useAuthContext";
 import { ToWords } from "to-words";
-import { StatusPill } from "src/components/page-kit";
+import {
+  StatusPill,
+  ModalShell,
+  FormActions,
+  EmptyState,
+} from "src/components/page-kit";
+import { alpha } from "@mui/material/styles";
 import { isOk, notifyFailure } from "src/utils/apiResult";
 // ----------------------------------------------------------------------
+
+/** The reasons an operator may reject a deposit. Order is the picker's order. */
+const REJECTION_REASONS = [
+  "Amount not Credited",
+  "Wrong Bank Selection",
+  "Invalid Transaction ID/ Bank Reference Number",
+  "Duplicate Request",
+  "Currently not clearing Advances",
+  "Wrong Amount Entered",
+  "Incorrect deposit date",
+];
+
+/**
+ * The six facts an operator checks before approving or rejecting. Rendered
+ * identically in the review modal and its confirmation step so the numbers
+ * being committed are the numbers that were read.
+ */
+function RequestFacts({ row, userData }: { row: any; userData: any }) {
+  const facts = [
+    { label: "Date & time", value: fDateTime(row?.date) },
+    { label: "UTR", value: userData?.transactional_details?.trxId },
+    { label: "Amount", value: fIndianCurrency(userData?.amount) },
+    { label: "Deposit bank", value: userData?.bankId?.bank_details?.bank_name },
+    { label: "Reference ID", value: userData?.request_from?.Id?.userCode },
+    {
+      label: "Deposit branch",
+      value: userData?.bankId?.bank_details?.branch_name,
+    },
+  ];
+
+  return (
+    <Box
+      sx={{
+        display: "grid",
+        gridTemplateColumns: {
+          xs: "1fr",
+          sm: "repeat(2, 1fr)",
+          md: "repeat(3, 1fr)",
+        },
+        gap: 1.25,
+      }}
+    >
+      {facts.map((fact) => (
+        <Box
+          key={fact.label}
+          sx={{
+            p: 1.25,
+            borderRadius: 1.5,
+            bgcolor: (t) => alpha(t.palette.primary.main, 0.04),
+            border: (t) => `1px solid ${alpha(t.palette.primary.main, 0.14)}`,
+          }}
+        >
+          <Typography
+            sx={{
+              fontSize: 10,
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: 0.8,
+              color: "text.secondary",
+            }}
+          >
+            {fact.label}
+          </Typography>
+          <Typography sx={{ fontSize: 13, fontWeight: 600, mt: 0.25 }}>
+            {fact.value || "—"}
+          </Typography>
+        </Box>
+      ))}
+    </Box>
+  );
+}
+
+/** A radio rendered as a selectable card, so the choice reads at a glance. */
+function DecisionOption({
+  value,
+  label,
+  selected,
+  tone,
+}: {
+  value: string;
+  label: string;
+  selected: boolean;
+  tone: "success" | "error";
+}) {
+  return (
+    <FormControlLabel
+      value={value}
+      control={<Radio color={tone} size="small" />}
+      label={label}
+      labelPlacement="end"
+      sx={{
+        m: 0,
+        pr: 2,
+        borderRadius: 1.5,
+        border: (t) =>
+          `1px solid ${
+            selected ? t.palette[tone].main : t.palette.divider
+          }`,
+        bgcolor: (t) =>
+          selected ? alpha(t.palette[tone].main, 0.08) : "transparent",
+        "& .MuiFormControlLabel-label": {
+          fontSize: 13,
+          fontWeight: selected ? 700 : 500,
+        },
+      }}
+    />
+  );
+}
 
 type RowProps = {
   amount: string;
@@ -954,330 +1068,260 @@ function FundRequestTablleRow({
         aria-labelledby="modal-modal-title"
         aria-describedby="modal-modal-description"
       >
-        <Grid
-          sx={{
-            position: "absolute" as "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            bgcolor: "#ffffff",
-            boxShadow: 4,
-            p: 4,
-            borderRadius: "20px",
-          }}
-          width={{ sm: "95%", md: "90%", lg: "60%", xl: "70%" }}
+        <ModalShell
+          title="Review fund request"
+          subtitle={`${row?.fund_request_Id || "Request"} · ${
+            row["user Name"] || "Unknown user"
+          }`}
+          onClose={handleClose}
+          width={900}
         >
-          <Box
-            display="grid"
-            gridTemplateColumns="repeat(12, 1fr)"
-            gap={2}
+          <RequestFacts row={row} userData={userData} />
+
+          {/* Other requests for the same amount - the duplicate check the
+              operator is actually here to make. */}
+          <Typography
             sx={{
-              backgroundColor: PRIMARY_LIGHT,
-              width: 1,
-              borderRadius: "10px",
+              fontSize: 12,
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: 0.8,
+              color: "text.secondary",
+              mt: 3,
+              mb: 1,
             }}
           >
-            <Box gridColumn="span 4">
-              <Stack color="white" ml={4} mt={1}>
-                <Typography style={{ fontWeight: "bold" }}>
-                  Date&Time:
-                </Typography>
-                <Typography variant="caption">{fDateTime(row.date)}</Typography>
-              </Stack>
-            </Box>
-            <Box gridColumn="span 4">
-              <Stack color="white" mt={1}>
-                <Typography style={{ fontWeight: "bold" }}>UTR:</Typography>
-                <Typography variant="caption">
-                  {userData.transactional_details?.trxId}
-                </Typography>
-              </Stack>
-            </Box>
-            <Box gridColumn="span 4">
-              <Stack color="white" mt={1}>
-                <Typography style={{ fontWeight: "bold" }}>Amount:</Typography>
-                <Typography variant="caption">
-                  {fIndianCurrency(userData.amount)}
-                </Typography>
-              </Stack>
-            </Box>
-            <Box gridColumn="span 4">
-              <Stack color="white" ml={4} mb={1}>
-                <Typography style={{ fontWeight: "bold" }}>
-                  Deposit Bank:
-                </Typography>
-                <Typography variant="caption">
-                  {userData?.bankId?.bank_details?.bank_name}
-                </Typography>
-              </Stack>
-            </Box>
-            <Box gridColumn="span 4">
-              <Stack color="white" mb={1}>
-                <Typography noWrap style={{ fontWeight: "bold" }}>
-                  Reference ID:
-                </Typography>
-                <Typography variant="caption">
-                  {userData.request_from?.Id?.userCode}
-                </Typography>
-              </Stack>
-            </Box>
-            <Box gridColumn="span 4" mb={1}>
-              <Stack color="white">
-                <Typography noWrap style={{ fontWeight: "bold" }}>
-                  Deposit Branch:
-                </Typography>
-                <Typography variant="caption">
-                  {userData?.bankId?.bank_details?.branch_name}
-                </Typography>
-              </Stack>
-            </Box>
-          </Box>
+            Other requests for this amount
+          </Typography>
 
-          <TableContainer sx={{ maxHeight: 300 }}>
-            <Table style={{ borderRadius: "10px", marginBottom: "2px" }}>
-              <TableHead>
-                <TableRow sx={{ marginBottom: "4" }}>
-                  <TableCell align="center" colSpan={7}>
-                    <Typography variant="h4" style={{ color: "#333" }}>
-                      Other Trasaction with similar amount
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>Date</TableCell>
-                  <TableCell>User Details</TableCell>
-                  <TableCell>UTR</TableCell>
-                  <TableCell>Mode of Payment</TableCell>
-                  <TableCell>Deposite Bank</TableCell>
-                  <TableCell>Amount</TableCell>
-                  <TableCell>Status</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {amountData?.slice(0, 10)?.map((user: any) => (
-                  <TableRow key={user.id}>
-                    <TableCell>{fDateTime(user.date)}</TableCell>
-                    <TableCell>
-                      {user["user Name"]} {user.role}
-                    </TableCell>
-                    <TableCell>{user["Reference ID"]}</TableCell>
-                    <TableCell>{user["Mode of Payment"]}</TableCell>
-                    <TableCell>{user["Bank Name"]}</TableCell>
-                    <TableCell>{user.Amount}</TableCell>
-                    <TableCell>
-                      <Label
-                        variant="soft"
-                        color={
-                          (user?.status === "Rejected" && "error") ||
-                          ((user?.status === "Pending" ||
-                            user?.status === "Approved") &&
-                            "warning") ||
-                          "success"
-                        }
-                        sx={{ textTransform: "capitalize" }}
-                      >
-                        {user?.status ? sentenceCase(user?.status) : ""}
-                      </Label>
-                    </TableCell>
+          {amountData?.length ? (
+            <TableContainer
+              sx={{
+                maxHeight: 260,
+                border: (t) => `1px solid ${t.palette.divider}`,
+                borderRadius: 1.5,
+              }}
+            >
+              <Table size="small" stickyHeader>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Date</TableCell>
+                    <TableCell>User</TableCell>
+                    <TableCell>UTR</TableCell>
+                    <TableCell>Mode</TableCell>
+                    <TableCell>Bank</TableCell>
+                    <TableCell align="right">Amount</TableCell>
+                    <TableCell>Status</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                </TableHead>
+                <TableBody>
+                  {amountData?.slice(0, 10)?.map((user: any, i: number) => (
+                    <TableRow key={user.id || i} hover>
+                      <TableCell>{fDateTime(user.date)}</TableCell>
+                      <TableCell>{user["user Name"]}</TableCell>
+                      <TableCell>{user["Reference ID"]}</TableCell>
+                      <TableCell>{user["Mode of Payment"]}</TableCell>
+                      <TableCell>{user["Bank Name"]}</TableCell>
+                      <TableCell align="right">{user.Amount}</TableCell>
+                      <TableCell>
+                        <Label
+                          variant="soft"
+                          color={
+                            (user?.status === "Rejected" && "error") ||
+                            (user?.status === "Approved" && "success") ||
+                            "warning"
+                          }
+                          sx={{ textTransform: "capitalize" }}
+                        >
+                          {user?.status ? sentenceCase(user?.status) : ""}
+                        </Label>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          ) : (
+            <EmptyState
+              title="No other requests for this amount"
+              description="Nothing here suggests a duplicate."
+            />
+          )}
 
-          <Typography variant="h6">You want to?</Typography>
+          {/* Decision */}
+          <Typography
+            sx={{
+              fontSize: 12,
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: 0.8,
+              color: "text.secondary",
+              mt: 3,
+              mb: 1,
+            }}
+          >
+            Decision
+          </Typography>
+
           <RadioGroup
             aria-label="approval"
             name="approval"
             value={approval}
             onChange={handleChange}
             row
+            sx={{ gap: 1.5 }}
           >
-            <FormControlLabel
+            <DecisionOption
               value="approve"
-              control={<Radio color="primary" />}
               label="Approve"
-              labelPlacement="end"
+              selected={approval === "approve"}
+              tone="success"
             />
-            <FormControlLabel
+            <DecisionOption
               value="reject"
-              control={<Radio color="primary" />}
               label="Reject"
-              labelPlacement="end"
+              selected={approval === "reject"}
+              tone="error"
             />
           </RadioGroup>
 
           {approval === "approve" && (
             <TextField
               label="Remark"
+              placeholder="What the partner and the audit trail will see"
               value={RequestApprove}
               onChange={handleRemarkChange}
-              sx={{ width: "40%" }}
+              fullWidth
               margin="normal"
               size="small"
             />
           )}
 
           {approval === "reject" && (
-            <FormControl fullWidth margin="normal">
-              <InputLabel id="demo-simple-select-label">Reason</InputLabel>
+            <FormControl fullWidth margin="normal" size="small">
+              <InputLabel id="reject-reason-label">Reason</InputLabel>
               <Select
-                labelId="demo-simple-select-label"
-                id="demo-simple-select"
+                labelId="reject-reason-label"
+                id="reject-reason"
                 value={reasonData}
                 label="Reason"
                 onChange={handleReasonChange}
                 size="small"
-                sx={{ width: "40%" }}
               >
-                <MenuItem value={"Amount not Credited"}>
-                  Amount not Credited
-                </MenuItem>
-                <MenuItem value={"Wrong Bank Selection"}>
-                  Wrong Bank Selection
-                </MenuItem>
-                <MenuItem
-                  value={"Invalid Transaction ID/ Bank Reference Number"}
-                >
-                  Invalid Transaction ID/ Bank Reference Number
-                </MenuItem>
-                <MenuItem value={"Duplicate Request"}>
-                  Duplicate Request
-                </MenuItem>
-                <MenuItem value={"Currently not clearing Advances"}>
-                  Currently not clearing Advances
-                </MenuItem>
-                <MenuItem value={"Wrong Amount Entered"}>
-                  Wrong Amount Entered
-                </MenuItem>
-                <MenuItem value={"Incorrect deposit date"}>
-                  Incorrect deposit date
-                </MenuItem>
+                {REJECTION_REASONS.map((option) => (
+                  <MenuItem key={option} value={option}>
+                    {option}
+                  </MenuItem>
+                ))}
               </Select>
             </FormControl>
           )}
 
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleContinueClick}
-            disabled={
-              !(
-                (approval == "approve" && RequestApprove) ||
-                (approval == "reject" && reasonData)
-              )
-            }
-          >
-            Continue
-          </Button>
+          <FormActions>
+            <Button variant="outlined" color="inherit" onClick={handleClose}>
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              color={approval === "reject" ? "error" : "primary"}
+              onClick={handleContinueClick}
+              disabled={
+                !(
+                  (approval === "approve" && RequestApprove) ||
+                  (approval === "reject" && reasonData)
+                )
+              }
+            >
+              {approval === "reject" ? "Continue to reject" : "Continue"}
+            </Button>
+          </FormActions>
 
+          {/* Confirmation step. Same shell for both outcomes, but it names the
+              outcome and colours the commit button, so a rejection can no
+              longer be committed by a button reading "sumbit". */}
           <Modal
             open={isModalOpen}
             onClose={handleCloseModal}
             aria-labelledby="modal-title"
             aria-describedby="modal-description"
           >
-            <Grid
-              sx={{
-                position: "absolute" as "absolute",
-                top: "50%",
-                left: "50%",
-                transform: "translate(-50%, -50%)",
-                bgcolor: "#ffffff",
-                boxShadow: 24,
-                p: 4,
-                borderRadius: "20px",
-              }}
-              width={{ sm: "90%", md: "50%" }}
+            <ModalShell
+              title={
+                approval === "reject"
+                  ? "Reject this fund request?"
+                  : "Approve this fund request?"
+              }
+              subtitle={
+                approval === "reject"
+                  ? "The partner's wallet is not credited. This cannot be undone."
+                  : "The partner's wallet is credited immediately. This cannot be undone."
+              }
+              onClose={handleCloseModal}
+              width={620}
             >
-              <Stack
-                style={{
-                  backgroundColor: "#fff",
-                  borderRadius: "10px",
-                  marginBottom: "2px",
+              <RequestFacts row={row} userData={userData} />
+
+              <Box
+                sx={{
+                  mt: 2,
+                  p: 1.5,
+                  borderRadius: 1.5,
+                  bgcolor: (t) =>
+                    alpha(
+                      approval === "reject"
+                        ? t.palette.error.main
+                        : t.palette.success.main,
+                      0.08
+                    ),
+                  border: (t) =>
+                    `1px solid ${alpha(
+                      approval === "reject"
+                        ? t.palette.error.main
+                        : t.palette.success.main,
+                      0.24
+                    )}`,
                 }}
               >
-                <Box sx={{ width: 1 }}>
-                  <Box
-                    display="grid"
-                    gridTemplateColumns="repeat(12, 1fr)"
-                    gap={2}
-                  >
-                    <Box gridColumn="span 4">
-                      <Stack ml={4}>
-                        <Typography style={{ fontWeight: "bold" }}>
-                          Date&Time:
-                        </Typography>
-                        <Typography variant="caption">
-                          {fDateTime(row.date)}
-                        </Typography>
-                      </Stack>
-                    </Box>
-                    <Box gridColumn="span 4">
-                      <Stack>
-                        <Typography style={{ fontWeight: "bold" }}>
-                          UTR:
-                        </Typography>
-                        <Typography variant="caption">
-                          {userData.transactional_details?.trxId}
-                        </Typography>
-                      </Stack>
-                    </Box>
-                    <Box gridColumn="span 4">
-                      <Stack>
-                        <Typography style={{ fontWeight: "bold" }}>
-                          Amount:
-                        </Typography>
-                        <Typography variant="caption">
-                          {fIndianCurrency(userData.amount)}
-                        </Typography>
-                      </Stack>
-                    </Box>
-                    <Box gridColumn="span 4">
-                      <Stack ml={4}>
-                        <Typography style={{ fontWeight: "bold" }}>
-                          Deposit Bank:
-                        </Typography>
-                        <Typography variant="caption">
-                          {userData?.bankId?.bank_details?.bank_name}
-                        </Typography>
-                      </Stack>
-                    </Box>
-                    <Box gridColumn="span 4">
-                      <Stack>
-                        <Typography style={{ fontWeight: "bold" }}>
-                          Reference ID:
-                        </Typography>
-                        <Typography variant="caption">
-                          {userData.request_from?.Id?.userCode}
-                        </Typography>
-                      </Stack>
-                    </Box>
-                    <Box gridColumn="span 4">
-                      <Stack>
-                        <Typography style={{ fontWeight: "bold" }}>
-                          Deposit Branch:
-                        </Typography>
-                        <Typography variant="caption">
-                          {userData?.bankId?.bank_details?.branch_name}
-                        </Typography>
-                      </Stack>
-                    </Box>
-                  </Box>
-                </Box>
+                <Typography
+                  sx={{
+                    fontSize: 10.5,
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: 0.8,
+                    color: approval === "reject" ? "error.dark" : "success.dark",
+                  }}
+                >
+                  {approval === "reject" ? "Rejection reason" : "Remark"}
+                </Typography>
+                <Typography sx={{ fontSize: 13, mt: 0.25 }}>
+                  {approval === "reject" ? reasonData : RequestApprove}
+                </Typography>
+              </Box>
+
+              <FormActions>
+                <Button
+                  variant="outlined"
+                  color="inherit"
+                  onClick={handleCloseModal}
+                >
+                  Back
+                </Button>
                 <LoadingButton
                   loading={verifyLoding}
                   variant="contained"
+                  color={approval === "reject" ? "error" : "primary"}
                   onClick={() =>
-                    action(approval == "approve" ? "Approved" : "Rejected")
+                    action(approval === "approve" ? "Approved" : "Rejected")
                   }
                 >
-                  sumbit
+                  {approval === "reject"
+                    ? "Reject request"
+                    : "Approve request"}
                 </LoadingButton>
-              </Stack>
-            </Grid>
+              </FormActions>
+            </ModalShell>
           </Modal>
-        </Grid>
+        </ModalShell>
       </Modal>
 
       {/* Hold Dialog - exactly as original */}

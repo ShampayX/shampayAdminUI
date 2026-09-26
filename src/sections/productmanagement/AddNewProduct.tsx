@@ -524,7 +524,8 @@ export default function AddNewProduct(props: any) {
             <em>None</em>
           </MenuItem> */}
               <MenuItem value="Main Wallet">Main Wallet</MenuItem>
-              <MenuItem value="AEPS Wallet">AEPS Wallet</MenuItem>
+              {/* "AEPS Wallet" removed - the AEPS wallet is not offered
+                  anywhere in this console. */}
             </RHFSelect>
           </FormControl>
         </div>

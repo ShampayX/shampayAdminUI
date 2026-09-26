@@ -73,23 +73,32 @@ export default function ViewAllBBPSScheme() {
   const [allScheme, setAllScheme] = useState([]);
   const [sdata, setSdata] = useState([]);
   const [description, setDescription] = useState("");
-  const [value, setValue] = React.useState("Distribution Network");
+  /* ------------------------------------------------------------------
+     BBPS schemes are `apiUser` only.
+
+     The backend rejects every other schemeType with
+     { code: 500, message: 'Invalid Scheme Type' }, and it dropped the six
+     agent / distributor / master-distributor commission columns from the
+     scheme payload, the CSV template, the download and the upload parser.
+     Those fields are now IGNORED rather than rejected - so a form that still
+     edited distributor commission would report success and change nothing.
+
+     The "Distribution Network" and "Direct Agent" tabs, their sample CSVs and
+     their upload option are therefore gone, and the one audience left is the
+     only one the API accepts.
+     ------------------------------------------------------------------ */
+  const [value, setValue] = React.useState("API user");
   const [schemeId, setSchemeId] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [csvToJson, setCsvToJson] = useState([]);
   const [isUploadLoading, setIsUploadLoading] = useState(false);
   const [schemeDesc, setSchemeDesc] = useState("");
-  const [schemeType, setSchemeType] = useState("neonetwork");
+  const [schemeType, setSchemeType] = useState("apiuser");
 
   const [isLoadingList, setIsLoadingList] = useState(false);
 
   /* Audience behind the visible tab, and the newest plan inside it. */
-  const schemeTypeForTab =
-    value === "Distribution Network"
-      ? "neonetwork"
-      : value === "Direct Agent"
-      ? "directagent"
-      : "apiuser";
+  const schemeTypeForTab = "apiuser";
 
   const newestPlan = React.useMemo(() => {
     const newest = (sdata as any[]).reduce(
@@ -134,19 +143,7 @@ export default function ViewAllBBPSScheme() {
 
   const handleChange = (event: React.SyntheticEvent, newValue: string) => {
     setValue(newValue);
-    if (newValue == "Distribution Network") {
-      setSdata(
-        allScheme.filter((item: any) => item.schemeType == "neonetwork")
-      );
-    }
-    if (newValue == "Direct Agent") {
-      setSdata(
-        allScheme.filter((item: any) => item.schemeType == "directagent")
-      );
-    }
-    if (newValue == "API user") {
-      setSdata(allScheme.filter((item: any) => item.schemeType == "apiuser"));
-    }
+    setSdata(allScheme.filter((item: any) => item.schemeType == "apiuser"));
   };
 
   // useEffect(() => {
@@ -317,7 +314,7 @@ export default function ViewAllBBPSScheme() {
           setAllScheme(Response.data.data);
           setSdata(
             Response.data.data.filter(
-              (item: any) => item.schemeType == "neonetwork"
+              (item: any) => item.schemeType == "apiuser"
             )
           );
           setIsLoadingList(false);
@@ -374,7 +371,7 @@ export default function ViewAllBBPSScheme() {
         enqueueSnackbar(Response.data.message);
         handleClose2();
         getSchemeList();
-        setValue("Distribution Network");
+        setValue("API user");
       } else {
         notifyFailure(enqueueSnackbar, Response);
       }
@@ -463,8 +460,6 @@ export default function ViewAllBBPSScheme() {
                 },
               }}
             >
-              <Tab value="Distribution Network" label="Distribution Network" />
-              <Tab value="Direct Agent" label="Direct Agent" />
               <Tab value="API user" label="API user" />
             </Tabs>
           </Box>
@@ -503,10 +498,21 @@ export default function ViewAllBBPSScheme() {
           gap={1}
           flexWrap="wrap"
         >
+          {/* One template left. `/download_scheme_template/distribution`
+              answers "Invalid Scheme Type" now, and the apiUser template lost
+              its six agent/distributor/master-distributor commission columns -
+              so a CSV saved before that change will not re-import. Re-download
+              before every bulk upload. */}
           <Button
             size="small"
             variant="outlined"
-            onClick={handleOpenPopover}
+            onClick={() =>
+              window.open(
+                process.env.REACT_APP_BASE_URL +
+                  "bbpsManagement/bbpsScheme/download_scheme_template/apiUser",
+                "_blank"
+              )
+            }
             sx={{
               whiteSpace: "nowrap",
               borderRadius: 2,
@@ -518,38 +524,6 @@ export default function ViewAllBBPSScheme() {
           >
             Download Sample
           </Button>
-
-          <MenuPopover
-            open={openPopover}
-            onClose={handleClosePopover}
-            arrow="left-bottom"
-            sx={{ width: "fit-content" }}
-          >
-            <MenuItem
-              onClick={() => {
-                window.open(
-                  process.env.REACT_APP_BASE_URL +
-                    "bbpsManagement/bbpsScheme/download_scheme_template/distribution",
-                  "_blank"
-                );
-                handleClosePopover();
-              }}
-            >
-              Sample for Distribution Network
-            </MenuItem>
-            <MenuItem
-              onClick={() => {
-                window.open(
-                  process.env.REACT_APP_BASE_URL +
-                    "bbpsManagement/bbpsScheme/download_scheme_template/apiUser",
-                  "_blank"
-                );
-                handleClosePopover();
-              }}
-            >
-              Sample for API User
-            </MenuItem>
-          </MenuPopover>
 
           <Button
             size="small"

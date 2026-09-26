@@ -497,66 +497,19 @@ function AEPS() {
                 />
               </FormGroup>
             </Stack>
+            {/* The Agent column - its settlement slab and its hold-wallet
+                amount - was removed. There is no agent role, so
+                `admin/set_agent_settlement_slab` and
+                `set_settlement_wallet_hold_amount_agent` configure nobody.
+                The API User column below is the whole screen now. */}
             <Grid
               gap={2}
               display={"grid"}
               gridTemplateColumns={{
                 xs: "repeat(1, 1fr)",
-                md: "repeat(2, 1fr)",
+                md: "repeat(1, 1fr)",
               }}
             >
-              <Stack>
-                <AgentSettlement
-                  agentSettlementSlab={agentSattlementSlab}
-                  aepsTxnAgentHold={aepsTxnAgentHold} //35c50b565de54778ee550c48fd115aa4a88e5444
-                  aepsServiceStatus={aepsServiceStatus} //d499464f8b58459568fd7c36b68031d6ef11b5be
-                />{" "}
-                <Box sx={{ p: 2, mt: 2, bgcolor: "#D4DADF", borderRadius: 2 }}>
-                  <Stack>
-                    <Stack flexDirection={"row"} alignItems={"center"} gap={2}>
-                      <Typography variant="h5">
-                        Hold Wallet Amount for Agent is
-                      </Typography>{" "}
-                      <FormGroup>
-                        <FormControlLabel
-                          control={
-                            <IOSSwitch
-                              sx={{ m: 1, cursor: "pointer" }}
-                              checked={aepsTxnAgentHold}
-                              disabled={isLoadingHoldAgent}
-                              onClick={txnHoldAgent}
-                            />
-                          }
-                          label={
-                            <h3>{aepsTxnAgentHold ? "Active" : "Disable"}</h3>
-                          }
-                        />
-                      </FormGroup>
-                    </Stack>
-                    <Stack flexDirection={"row"} gap={2}>
-                      <TextField
-                        id="outlined-basic"
-                        // label={row.minSlab}
-                        variant="outlined"
-                        size="small"
-                        disabled={!isEditAgent}
-                        value={aepsAgentHold}
-                        onChange={(e) => setAepsAgentHold(e.target.value)}
-                      />
-                      <Button
-                        variant="contained"
-                        onClick={() =>
-                          isEditAgent
-                            ? saveHoldAmountAgent()
-                            : setIsEditAgent(!isEditAgent)
-                        }
-                      >
-                        {isEditAgent ? "Save" : "Edit"}
-                      </Button>
-                    </Stack>
-                  </Stack>
-                </Box>
-              </Stack>
               <Stack>
                 <ApiSettlement
                   apiSettlementSlab={apiSattlementSlab}
