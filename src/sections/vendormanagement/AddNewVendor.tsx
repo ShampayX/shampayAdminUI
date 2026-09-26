@@ -34,6 +34,7 @@ import FormProvider, {
 import React from "react";
 import Upload from "src/components/upload/Upload";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure, failureMessage } from "src/utils/apiResult";
 // import { Label } from '@mui/icons-material';
 
 // ----------------------------------------------------------------------
@@ -149,7 +150,12 @@ export default function AddNewVendor(props: any) {
   };
 
   const FilterSchema = Yup.object().shape({
-    // vendorName: Yup.string().required('Vendor Name is required'),
+    // Item 3d: `vendor/add_Vendor` requires `vendorName` now, trims it, and
+    // refuses a name that already exists case-insensitively. Mirrored here so the
+    // operator finds out before submitting.
+    vendorName: Yup.string()
+      .transform((value) => (typeof value === "string" ? value.trim() : value))
+      .required("Vendor name is required"),
     // vendor_gst: Yup.string().required(),
     // vendorContactName: Yup.string().required(),
     // vendorContact: Yup.string().required(),
@@ -371,7 +377,7 @@ export default function AddNewVendor(props: any) {
     setMess("Loading...");
     try {
       const body = {
-        vendorName: data.vendorName,
+        vendorName: (data.vendorName || "").trim(),
         vendor_gst: data.vendor_gst,
         vendorContactName: data.vendorContactName,
         vendorContact: data.vendorContact,
@@ -394,33 +400,39 @@ export default function AddNewVendor(props: any) {
           ""
         ).then((Response: any) => {
           //
-          if (Response?.status == 200) {
-            if (Response.data.code == 200) {
-              enqueueSnackbar(Response.data.message);
-              // setStep(2)
-              // setActive(1)
-              // setMess(Response.data.message)
-              reset();
-              props.closeModel();
-            } else {
-              enqueueSnackbar(Response.data.message);
-            }
+          if (isOk(Response)) {
+            enqueueSnackbar(Response.data.message);
+            // setStep(2)
+            // setActive(1)
+            // setMess(Response.data.message)
+            reset();
+            props.closeModel();
+          } else {
+            notifyFailure(enqueueSnackbar, Response);
           }
         });
       } else {
         await Api(`vendor/add_Vendor`, "POST", body, "").then(
           (Response: any) => {
             //
-            if (Response?.status == 200) {
-              if (Response.data.code == 200) {
-                enqueueSnackbar(Response.data.message);
-                reset();
-                // setStep(2)
-                // setActive(1)
-                // setMess(Response.data.message)
-              } else {
-                enqueueSnackbar(Response.data.message);
+            if (isOk(Response)) {
+              enqueueSnackbar(Response.data.message);
+              reset();
+              // setStep(2)
+              // setActive(1)
+              // setMess(Response.data.message)
+            } else {
+              // The duplicate-name refusal is about this field, so it belongs on
+              // it - a toast alone leaves the operator looking at a form that
+              // still says it is fine.
+              const message = failureMessage(Response);
+              if (
+                /name/i.test(message) &&
+                /exist|already|dupl/i.test(message)
+              ) {
+                setError("vendorName", { type: "server", message });
               }
+              notifyFailure(enqueueSnackbar, Response);
             }
           }
         );
@@ -550,8 +562,7 @@ export default function AddNewVendor(props: any) {
                 {/* <MenuItem value="">
             <em>None</em>
           </MenuItem> */}
-                <MenuItem value="directagent">Direct Agent</MenuItem>
-                <MenuItem value="neonetwork">Neo Network</MenuItem>
+                {/* Item 3d: agent-network types retired - only API users remain. */}
                 <MenuItem value="apiuser">API User</MenuItem>
                 <MenuItem value="everyone">Everyone</MenuItem>
               </RHFSelect>

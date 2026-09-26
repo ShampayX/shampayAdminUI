@@ -97,8 +97,21 @@ const TabsData = [
   { label: "Account Ledger", value: "walletLedger" },
   { label: "Member Export", value: "memberExport" },
   { label: "Main Wallet Summary", value: "Admin Main Wallet Summary Report " },
-  { label: "AEPS Wallet Summary", value: "Admin AEPS Wallet Summary Report " },
+  /* "AEPS Wallet Summary" (value "Admin AEPS Wallet Summary Report ") was
+     removed - the AEPS wallet is not surfaced in this console. */
 ];
+
+/**
+ * Report types the report Lambda can actually generate. The other tabs still
+ * show their archive, but requesting one would be refused (400) or end Failed.
+ */
+const EXPORTABLE = ["transactionRecords", "fundRequest", "fundFlow", "walletLedger"];
+
+/** These run per user only; the Lambda rejects them platform-wide. */
+const USER_SCOPED_ONLY = ["fundFlow", "walletLedger"];
+
+/** How often the archive re-reads itself while an export is still pending. */
+const POLL_MS = 15000;
 
 /** Buckets the raw `status` strings into the four states operators care about. */
 const STATE_OF = (status: string) => {
@@ -191,8 +204,24 @@ export default function HistoricalData() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentTab, reportData.currentPage, reportData.pageSize]);
 
-  const getReport = () => {
-    setReportData((prevState) => ({ ...prevState, isLoading: true, error: "" }));
+  const hasPending = reportData.data.some((row) => {
+    const state = STATE_OF(row?.status);
+    return state === "pending" || state === "processing";
+  });
+
+  // Exports finish in the background. While any row on this page is still
+  // pending, re-read quietly so it flips to Completed / Failed on its own.
+  React.useEffect(() => {
+    if (!hasPending || open) return;
+    const timer = setTimeout(() => getReport(true), POLL_MS);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasPending, open, reportData.data]);
+
+  const getReport = (silent = false) => {
+    if (!silent) {
+      setReportData((prevState) => ({ ...prevState, isLoading: true, error: "" }));
+    }
 
     let token = localStorage.getItem("token");
     let body = {
@@ -244,14 +273,24 @@ export default function HistoricalData() {
       });
   };
 
+  const canExport = EXPORTABLE.includes(currentTab.value);
+  const needsUser =
+    watch("role") !== "admin" || USER_SCOPED_ONLY.includes(currentTab.value);
+  const hasUser = Boolean(watch("userDetail")?._id);
+
   const submitReport = async (data: FormValuesProps) => {
     try {
+      // Without a user_id the backend runs the report for the whole platform,
+      // so a user role with no user picked must not reach the API.
+      if (needsUser && !data.userDetail?._id) {
+        throw new Error("Select a user for this export.");
+      }
       let token = localStorage.getItem("token");
       let body = {
         from_date: fDateFormatForApi(data.fromDate),
         to_date: fDateFormatForApi(data.toDate),
         type_of_report: currentTab.value,
-        user_id: data.userDetail._id,
+        user_id: data.role === "admin" ? undefined : data.userDetail?._id,
         role: data.role,
         email: "finance@shampay.pro",
       };
@@ -331,13 +370,14 @@ export default function HistoricalData() {
             <>
               <PageGhostButton
                 startIcon={<RefreshOutlinedIcon />}
-                onClick={getReport}
+                onClick={() => getReport()}
               >
                 Refresh
               </PageGhostButton>
               <PageActionButton
                 startIcon={<AddchartOutlinedIcon />}
                 onClick={handleOpen}
+                disabled={!canExport}
               >
                 New Export
               </PageActionButton>
@@ -427,7 +467,7 @@ export default function HistoricalData() {
             action={
               <PageGhostButton
                 startIcon={<RefreshOutlinedIcon />}
-                onClick={getReport}
+                onClick={() => getReport()}
               >
                 Try again
               </PageGhostButton>
@@ -437,11 +477,16 @@ export default function HistoricalData() {
           <EmptyState
             icon={<Inventory2OutlinedIcon />}
             title="No exports yet"
-            description={`Nothing has been generated for ${currentTab.label}. Request one and it will show up here.`}
+            description={
+              canExport
+                ? `Nothing has been generated for ${currentTab.label}. Request one and it will show up here.`
+                : `${currentTab.label} exports are not available yet.`
+            }
             action={
               <PageActionButton
                 startIcon={<AddchartOutlinedIcon />}
                 onClick={handleOpen}
+                disabled={!canExport}
               >
                 New Export
               </PageActionButton>
@@ -478,7 +523,7 @@ export default function HistoricalData() {
           <Modal open={open} aria-labelledby="modal-modal-title">
             <ModalShell
               title="New Export"
-              subtitle={`${currentTab.label} • generated asynchronously and emailed to finance@shampay.pro`}
+              subtitle={`${currentTab.label} • generated in the background; it appears in this archive when ready`}
               onClose={() => {
                 handleClose();
                 reset(defaultValues);
@@ -552,11 +597,12 @@ export default function HistoricalData() {
                     }}
                   >
                     <MenuItem value="API_User">API User</MenuItem>
-                    {currentTab.label !== "GST & TDS Report" && (
-                      <MenuItem value="admin">
-                        {currentTab.value == "memberExport" ? "All" : "Admin"}
-                      </MenuItem>
-                    )}
+                    {currentTab.label !== "GST & TDS Report" &&
+                      !USER_SCOPED_ONLY.includes(currentTab.value) && (
+                        <MenuItem value="admin">
+                          {currentTab.value == "memberExport" ? "All" : "Admin (all users)"}
+                        </MenuItem>
+                      )}
                   </RHFSelect>
 
                   {watch("role") !== "admin" && (
@@ -638,7 +684,7 @@ export default function HistoricalData() {
                   <LoadingButton
                     variant="contained"
                     type="submit"
-                    disabled={!isValid}
+                    disabled={!isValid || (needsUser && !hasUser)}
                     loading={isSubmitting}
                   >
                     Request Export

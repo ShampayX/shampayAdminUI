@@ -33,20 +33,18 @@ export type BbpsMappingRow = {
   company_name: string;
 };
 
+/* Roles are { Admin, API_User }. Agent, distributor, master distributor and
+   direct agent are gone, so a row can only be one of these two. */
 const ROLE_LABELS: Record<string, string> = {
-  agent: "Agent",
-  distributor: "Distributor",
-  m_distributor: "Master Distributor",
-  directagent: "Direct Agent",
+  Admin: "Admin",
 };
 
 export const roleLabel = (role: string) => ROLE_LABELS[role] || "API User";
 
-/** Plan audiences the BBPS scheme payload uses. */
+/** Plan audiences the BBPS scheme payload uses. `apiUser` is the only type the
+    backend still accepts; legacy rows may carry the retired ones. */
 const PLAN_TYPE_LABELS: Record<string, string> = {
-  neonetwork: "Distribution",
   apiuser: "API User",
-  directagent: "Direct Agent",
 };
 
 export const planTypeLabel = (type: string) =>

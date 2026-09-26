@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 // @mui
-import { Box, Stack, Switch, MenuItem, TextField, SwitchProps, styled } from "@mui/material";
+import {
+  Box,
+  Stack,
+  Switch,
+  MenuItem,
+  TextField,
+  SwitchProps,
+  styled,
+} from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import EditIcon from "@mui/icons-material/EditOutlined";
 import SaveIcon from "@mui/icons-material/SaveOutlined";
@@ -17,6 +25,7 @@ import {
 } from "src/components/page-kit";
 //
 import { VendorLane, VendorValue } from "./VendorLane";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 // ----------------------------------------------------------------------
 // Vendor Switch > KYC.
@@ -138,12 +147,12 @@ export default function PartnerBilling() {
     };
 
     Api("admin/set_KYC_Vendor", "POST", body, "").then((Response: any) => {
-      if (Response?.status === 200) {
-        if (Response.data.code === 200) {
-          setIsEditing(false);
-        }
-        enqueueSnackbar(Response.data.message);
+      if (isOk(Response)) {
+        setIsEditing(false);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
+      enqueueSnackbar(Response.data.message);
       setIsSaving(false);
     });
   };
@@ -156,12 +165,12 @@ export default function PartnerBilling() {
 
     Api("admin/kyc_switch_office", "POST", body, token).then(
       (Response: any) => {
-        if (Response?.status === 200) {
-          if (Response.data.code === 200) {
-            setAadharOfline(Response?.data?.isAadhaarOffline);
-          }
-          enqueueSnackbar(Response.data.message);
+        if (isOk(Response)) {
+          setAadharOfline(Response?.data?.isAadhaarOffline);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
+        enqueueSnackbar(Response.data.message);
       }
     );
   };

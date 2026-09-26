@@ -659,14 +659,14 @@ const navConfig = [
             title: "Map BBPS Scheme",
             path: PATH_DASHBOARD.scheme.mapbbpsScheme,
           },
-          {
-            title: "Manage Loan Scheme",
-            path: PATH_DASHBOARD.scheme.AllLaonScheme,
-          },
-          {
-            title: "Map Loan Scheme",
-            path: PATH_DASHBOARD.scheme.maploanscheme,
-          },
+          /* Loan Plan Catalog and Loan Plan Mapping were removed from the
+             sidebar. Lending is not a ShampayX service. Routes, pages and the
+             `admin/loan/*` endpoints are untouched, so both URLs still
+             resolve; to bring either back, restore its entry here plus its
+             NAV_CHILD_LABELS line in NavSidebar.tsx:
+
+               { title: "Manage Loan Scheme", path: PATH_DASHBOARD.scheme.AllLaonScheme },
+               { title: "Map Loan Scheme",    path: PATH_DASHBOARD.scheme.maploanscheme }, */
         ],
       },
       // {

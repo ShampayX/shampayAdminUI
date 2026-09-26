@@ -1,9 +1,5 @@
 import React, { useState } from "react";
-import {
-  PageHeader,
-  FilterBar,
-  FilterSlot,
-} from "src/components/page-kit";
+import { PageHeader, FilterBar, FilterSlot } from "src/components/page-kit";
 import PersonSearchOutlinedIcon from "@mui/icons-material/PersonSearchOutlined";
 import {
   Stack,
@@ -27,6 +23,7 @@ import FormProvider, { RHFTextField } from "src/components/hook-form";
 
 import { useSnackbar } from "notistack";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 type FormValuesProps = {
   email: any;
@@ -145,17 +142,13 @@ function PanVarified() {
       PANnumber: data.panNumber,
     };
     Api(`admin/user_pan_update`, "POST", body, token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          enqueueSnackbar(Response.data.message, { variant: "success" });
-          setOpen(false);
-          setUserRecord(false);
-          resetpan(defaultValuesapn);
-        } else {
-          enqueueSnackbar(Response.data.message, { variant: "error" });
-        }
+      if (isOk(Response)) {
+        enqueueSnackbar(Response.data.message, { variant: "success" });
+        setOpen(false);
+        setUserRecord(false);
+        resetpan(defaultValuesapn);
       } else {
-        enqueueSnackbar("Failed", { variant: "error" });
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -167,7 +160,10 @@ function PanVarified() {
         subtitle="Look a user up by email, then review and approve their PAN."
       />
 
-      <FormProvider methods={methods} onSubmit={handleSubmit(searchTxnFilterData)}>
+      <FormProvider
+        methods={methods}
+        onSubmit={handleSubmit(searchTxnFilterData)}
+      >
         <FilterBar>
           <FilterSlot icon={<PersonSearchOutlinedIcon />} grow minWidth={280}>
             <RHFTextField

@@ -44,6 +44,7 @@ import {
   LEAD_COLUMNS,
   LEAD_COLUMNS_WITH_ACTION,
 } from "src/sections/Newleads/leadColumns";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 // import styled from "@emotion/styled";
 
 type FormValuesProps = {
@@ -62,6 +63,7 @@ type FormValuesProps = {
 };
 
 export default function NewLeads() {
+  const { enqueueSnackbar } = useSnackbar();
   const { Api } = useAuthContext();
   const [currentTab, setCurrentTab] = useState("new leads");
   const [successData, setSuccessData] = useState([]);
@@ -118,10 +120,10 @@ export default function NewLeads() {
   useEffect(() => {
     let token = localStorage.getItem("token");
     Api("admin/get_user_count", "GET", "", token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setCount(Response.data.data);
-        }
+      if (isOk(Response)) {
+        setCount(Response.data.data);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   }, []);
@@ -174,15 +176,13 @@ export default function NewLeads() {
       body,
       token
     ).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setSuccessData(Response.data.data);
-          setTxnCount(Response.data.count);
-        }
-        setIsLoading(false);
+      if (isOk(Response)) {
+        setSuccessData(Response.data.data);
+        setTxnCount(Response.data.count);
       } else {
-        setIsLoading(false);
+        notifyFailure(enqueueSnackbar, Response);
       }
+      setIsLoading(false);
     });
   };
 
@@ -195,11 +195,10 @@ export default function NewLeads() {
     };
     {
       Api(`admin/search_user`, "POST", body, "").then((Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setUserList(Response.data.data);
-          } else {
-          }
+        if (isOk(Response)) {
+          setUserList(Response.data.data);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       });
     }
@@ -306,9 +305,8 @@ export default function NewLeads() {
                 sx: { textTransform: "capitalize" },
               }}
             >
-              <MenuItem value="agent">Agent</MenuItem>
-              <MenuItem value="distributor">Distributor</MenuItem>
-              <MenuItem value="m_distributor">Master Distributor</MenuItem>
+              {/* Item 3d: roles are only Admin and API_User now. */}
+              <MenuItem value="API_User">API User</MenuItem>
             </RHFSelect>
             {(watch("searchBy") == "agent" ||
               watch("searchBy") == "distributor" ||

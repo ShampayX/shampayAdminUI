@@ -11,6 +11,7 @@ import React, { useEffect } from "react";
 import { useAuthContext } from "src/auth/useAuthContext";
 import { CustomAvatar } from "../custom-avatar";
 import { sentenceCase } from "change-case";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 type childProps = {
   payload: {
@@ -56,12 +57,10 @@ export default function CustomUserAutocomplete({
     };
     const token = localStorage.getItem("token");
     Api(`admin/search_user`, "POST", body, token).then((Response: any) => {
-      if (Response.status == 200) {
-        if (Response.data.code == 200) {
-          setOptions(Response.data.data);
-        }
+      if (isOk(Response)) {
+        setOptions(Response.data.data);
       } else {
-        enqueueSnackbar("Server Error", { variant: "error" });
+        notifyFailure(enqueueSnackbar, Response);
       }
       setIsLoading(false);
     });
@@ -120,10 +119,10 @@ export default function CustomUserAutocomplete({
               {sentenceCase(option?.lastName || "")}
             </Typography>
             <Typography variant="body2">
+              {/* Roles are { Admin, API_User } - there is no longer a role
+                  whose stored value needs relabelling here. */}
               {sentenceCase(
-                option?.role == "m_distributor"
-                  ? "Master Distributor"
-                  : option?.role || ""
+                option?.role == "API_User" ? "API User" : option?.role || ""
               )}{" "}
               ({option?.userCode})
             </Typography>

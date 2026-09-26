@@ -27,6 +27,13 @@ import FormProvider, {
 
 import { fetchLocation } from "src/utils/fetchLocation";
 import { useAuthContext } from "src/auth/useAuthContext";
+import {
+  isOk,
+  notifyOk,
+  successMessage,
+  failureMessage,
+  notifyFailure,
+} from "src/utils/apiResult";
 // ----------------------------------------------------------------------
 
 type FormValuesProps = {
@@ -66,9 +73,16 @@ export default function NewPasswordForm() {
     email: Yup.string()
       .email("Email must be a valid email address")
       .required("Email is required"),
+    // Item 3d: the server rule, mirrored exactly so the operator finds out here
+    // rather than after submitting. Note the character class is `[a-zA-Z\d]` -
+    // the backend rejects symbols, so a password containing one fails there even
+    // though it looks stronger.
     password: Yup.string()
-      .min(6, "Password must be at least 6 characters")
-      .required("Password is required"),
+      .required("Password is required")
+      .matches(
+        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d]{8,}$/,
+        "At least 8 characters, with an upper case letter, a lower case letter and a digit. Letters and digits only."
+      ),
     confirmPassword: Yup.string()
       .required("Confirm password is required")
       .oneOf([Yup.ref("password"), null], "Passwords must match"),
@@ -102,15 +116,15 @@ export default function NewPasswordForm() {
       const body = {
         email: sessionStorage.getItem("email-recovery"),
       };
-      await Api(`admin/admin_forgotPassword`, "POST", body, "").then(
+      // Item 3d: same corrected path as the first step. The reply carries no
+      // data payload - it is deliberately the same sentence whether or not the
+      // address belongs to an admin - so it is shown verbatim.
+      await Api(`admin-forgot-password`, "POST", body, "").then(
         (Response: any) => {
-          if (Response?.status == 200) {
-            if (Response.data.code == 200) {
-              localStorage.setItem("user", Response.data.data.user);
-              enqueueSnackbar(Response.data.message);
-            } else {
-              enqueueSnackbar(Response.data.message);
-            }
+          if (isOk(Response)) {
+            notifyOk(enqueueSnackbar, Response);
+          } else {
+            notifyFailure(enqueueSnackbar, Response);
           }
         }
       );
@@ -121,8 +135,12 @@ export default function NewPasswordForm() {
 
   const onSubmit = async (data: FormValuesProps) => {
     try {
+      // Item 3d: the endpoint takes `{ email, otp, password }` and lives beside
+      // the login route as `admin-reset-password`. The old call sent a `userId`
+      // read from localStorage to a path under `/admin`, which is behind the
+      // admin-only guard - so it could not have worked for someone locked out.
       const body = {
-        userId: localStorage.getItem("user"),
+        email: emailRecovery || data.email,
         otp:
           data.code1 +
           data.code2 +
@@ -133,17 +151,20 @@ export default function NewPasswordForm() {
         password: data.password,
       };
       await fetchLocation();
-      await Api(`admin/adminOtpVerifyAndResetPassword`, "POST", body, "").then(
+      await Api(`admin-reset-password`, "POST", body, "").then(
         (Response: any) => {
-          if (Response?.status == 200) {
-            if (Response.data.code == 200) {
-              setMess(Response.data.responseMessage);
-              sessionStorage.removeItem("email-recovery");
-              enqueueSnackbar("Change password success!");
-              navigate(PATH_DASHBOARD.root);
-            } else {
-              setMess(Response.data.responseMessage);
-            }
+          // Item 1c: both branches read `responseMessage`, which the
+          // `{ code, message }` contract does not set, so the on-screen message was
+          // always blank. The failure branch was also unreachable for a real 4xx,
+          // because the status line now matches the code.
+          if (isOk(Response)) {
+            setMess(successMessage(Response, "Password changed."));
+            sessionStorage.removeItem("email-recovery");
+            enqueueSnackbar("Change password success!", { variant: "success" });
+            navigate(PATH_DASHBOARD.root);
+          } else {
+            setMess(failureMessage(Response));
+            notifyFailure(enqueueSnackbar, Response);
           }
         }
       );

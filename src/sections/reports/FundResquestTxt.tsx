@@ -139,9 +139,7 @@ export default function FundRequestTxt() {
                 sx: { textTransform: "capitalize" },
               }}
             >
-              <MenuItem value="agent">Agent</MenuItem>
-              <MenuItem value="distributor">Distributor</MenuItem>
-              <MenuItem value="m_distributor">Master Distributor</MenuItem>
+              {/* Item 3d: roles are only Admin and API_User now. */}
               <MenuItem value="API_User">API User</MenuItem>
               <MenuItem value="ADMIN">Admin</MenuItem>
             </RHFSelect>

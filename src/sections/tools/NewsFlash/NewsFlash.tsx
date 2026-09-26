@@ -17,7 +17,7 @@ import { useNavigate } from "react-router";
 import { PATH_DASHBOARD } from "src/routes/paths";
 import { useLocation } from "react-router-dom";
 import { DateTimePicker } from "@mui/x-date-pickers";
-
+import { isOk, notifyOk, notifyFailure } from "src/utils/apiResult";
 
 type NewsItem = {
   _id: string;
@@ -38,7 +38,7 @@ const NewsFlash = () => {
   const passedItem = location.state?.item as NewsItem;
 
   //  main content
-  const navigate= useNavigate();
+  const navigate = useNavigate();
   const { Api } = useAuthContext();
   const { enqueueSnackbar } = useSnackbar();
 
@@ -85,7 +85,11 @@ const NewsFlash = () => {
     try {
       const createPost = await Api("admin/createPost", "POST", body, token);
 
-      if (createPost?.status == 200) {
+      // Item 1b: this fired the success toast on the transport status alone, so a
+      // `{ code: 404 }` body was reported as a successful create. The failure
+      // branch also used variant "success", so a failure was indistinguishable
+      // from a save even when it was taken.
+      if (isOk(createPost)) {
         setFormData({
           title: "",
           content: "",
@@ -94,13 +98,13 @@ const NewsFlash = () => {
           startTime: null,
           endTime: null,
         });
-        enqueueSnackbar("News Flash created successfully!", {
-          variant: "success",
-        });
+        notifyOk(
+          enqueueSnackbar,
+          createPost,
+          "News Flash created successfully!"
+        );
       } else {
-        enqueueSnackbar(createPost?.data?.message || "Failed to create post", {
-          variant: "success",
-        });
+        notifyFailure(enqueueSnackbar, createPost);
       }
     } catch (error) {
       enqueueSnackbar("Something went wrong.", { variant: "error" });
@@ -129,9 +133,15 @@ const NewsFlash = () => {
     };
 
     try {
-      const updatePost = await Api(`admin/updateNewsFlash/${editId}`,"POST",body,token);
+      const updatePost = await Api(
+        `admin/updateNewsFlash/${editId}`,
+        "POST",
+        body,
+        token
+      );
 
-      if (updatePost?.status == 200) {
+      // Item 1b: success was toasted on the transport status alone.
+      if (isOk(updatePost)) {
         setFormData({
           title: "",
           content: "",
@@ -141,13 +151,13 @@ const NewsFlash = () => {
           endTime: null,
         });
         setEditId(null);
-        enqueueSnackbar("News Flash updated successfully!", {
-          variant: "success",
-        });
+        notifyOk(
+          enqueueSnackbar,
+          updatePost,
+          "News Flash updated successfully!"
+        );
       } else {
-        enqueueSnackbar(updatePost?.data?.message || "Failed to update post", {
-          variant: "error",
-        });
+        notifyFailure(enqueueSnackbar, updatePost);
       }
     } catch (error) {
       enqueueSnackbar("Something went wrong while updating.", {
@@ -156,24 +166,23 @@ const NewsFlash = () => {
     }
   };
 
- useEffect(() => {
-  if (passedItem) {
-    setFormData({
-      title: passedItem.title,
-      content: passedItem.content,
-      type: passedItem.type,
-      createdBy: passedItem.createdBy,
-      startTime: new Date(passedItem.startTime),
-      endTime: new Date(passedItem.endTime),
-    });
-    setEditId(passedItem._id); 
-  }
-}, [passedItem]);
-
+  useEffect(() => {
+    if (passedItem) {
+      setFormData({
+        title: passedItem.title,
+        content: passedItem.content,
+        type: passedItem.type,
+        createdBy: passedItem.createdBy,
+        startTime: new Date(passedItem.startTime),
+        endTime: new Date(passedItem.endTime),
+      });
+      setEditId(passedItem._id);
+    }
+  }, [passedItem]);
 
   const handleClick = () => {
-    navigate(PATH_DASHBOARD.tools.newssummary)
-  }
+    navigate(PATH_DASHBOARD.tools.newssummary);
+  };
 
   const isEditing = Boolean(editId);
 
@@ -195,7 +204,10 @@ const NewsFlash = () => {
         title="News Flash"
         subtitle="Publish a banner message to every partner dashboard for a set window."
         actions={
-          <PageGhostButton startIcon={<ListAltOutlinedIcon />} onClick={handleClick}>
+          <PageGhostButton
+            startIcon={<ListAltOutlinedIcon />}
+            onClick={handleClick}
+          >
             View News Summary
           </PageGhostButton>
         }

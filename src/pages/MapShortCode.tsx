@@ -50,6 +50,7 @@ import Iconify from "src/components/iconify";
 import React from "react";
 import ProductTable from "../sections/productmanagement/MapShortCodeTable";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 // import { Label } from '@mui/icons-material';
 
@@ -74,6 +75,7 @@ interface Props extends CardProps {
   tableLabels: any;
 }
 export default function MapShortCode() {
+  const { enqueueSnackbar } = useSnackbar();
   const { Api } = useAuthContext();
 
   const { themeStretch } = useSettingsContext();
@@ -237,11 +239,10 @@ export default function MapShortCode() {
   const getShortCodeAndRoute = () => {
     Api(`product/get_product_shortCodeAndRoute`, "GET", "", "").then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setPdata(Response.data.data);
-          } else {
-          }
+        if (isOk(Response)) {
+          setPdata(Response.data.data);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -266,42 +267,44 @@ export default function MapShortCode() {
 
   const getvendorlist = () => {
     Api(`vendor/get_VendorList`, "GET", "", "").then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setVdata(Response.data.data);
-          //
+      if (isOk(Response)) {
+        setVdata(Response.data.data);
+        //
 
-          // tableLabels.splice(2,item.vendorName)
-          {
-            let tableLabels: any = [
-              { id: "product", label: "Product Details" },
-              { id: "subcategory", label: "Subcategory" },
+        // tableLabels.splice(2,item.vendorName)
+        {
+          let tableLabels: any = [
+            { id: "product", label: "Product Details" },
+            { id: "subcategory", label: "Subcategory" },
 
-              // { id: 'SCTSprint', label: 'SCTSprint'},
-              // { id: 'RazorPay', label: 'RazorPay' },
-              // { id: 'PayUMoney', label: 'PayUMoney'},
-              // { id: 'SCPaySprint', label: 'SCPaySprint' },
-              { id: "DirectAgents", label: "Direct Agents" },
-              { id: "NeoNetwork", label: "Neo Network" },
-              { id: "apiUsers", label: "API Users" },
-              { id: "ActionWallet", label: "Action Wallet" },
-              { id: "Action", label: "Action" },
-            ];
-            Response.data.data.map((item: any, index: any) => {
-              // console.log('====>',item.vendorName)
-              let obj: any = { id: item.vendorName, label: item.vendorName };
-              tableLabels.splice(2, 0, obj);
-              setTablab(tableLabels);
-            });
-          }
-        } else {
+            // { id: 'SCTSprint', label: 'SCTSprint'},
+            // { id: 'RazorPay', label: 'RazorPay' },
+            // { id: 'PayUMoney', label: 'PayUMoney'},
+            // { id: 'SCPaySprint', label: 'SCPaySprint' },
+            { id: "DirectAgents", label: "Direct Agents" },
+            { id: "NeoNetwork", label: "Neo Network" },
+            { id: "apiUsers", label: "API Users" },
+            { id: "ActionWallet", label: "Action Wallet" },
+            { id: "Action", label: "Action" },
+          ];
+          Response.data.data.map((item: any, index: any) => {
+            // console.log('====>',item.vendorName)
+            let obj: any = { id: item.vendorName, label: item.vendorName };
+            tableLabels.splice(2, 0, obj);
+            setTablab(tableLabels);
+          });
         }
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
 
   const csvDownload = () => {
-    window.open("https://api.shampay.pro/product/download_Product_Csv", "_blank");
+    window.open(
+      "https://api.shampay.pro/product/download_Product_Csv",
+      "_blank"
+    );
   };
 
   const style = {

@@ -77,11 +77,12 @@ type FormValuesProps = {
   search: string;
 };
 
-const SCHEME_TYPES = [
-  { value: "directagent", label: "Direct Agent" },
-  { value: "neonetwork", label: "Distribution Network" },
-  { value: "apiuser", label: "API User" },
-];
+// Item 3d: roles are only `Admin` and `API_User` now, so the agent-network
+// scheme types are retired. The commission fields for those networks - agent,
+// distributor, master distributor - are rendered behind
+// `schemeType == "neonetwork" | "directagent"` throughout the scheme screens,
+// so removing the types here is what takes those fields off the forms.
+const SCHEME_TYPES = [{ value: "apiuser", label: "API User" }];
 
 export default function ViewAllScheme() {
   const { Api } = useAuthContext();
@@ -154,7 +155,8 @@ export default function ViewAllScheme() {
         } else {
           setSdata([]);
           setError(
-            Response?.data?.data?.message || "Could not load the scheme catalog."
+            Response?.data?.data?.message ||
+              "Could not load the scheme catalog."
           );
           enqueueSnackbar(Response?.data?.data?.message, { variant: "error" });
         }
@@ -317,9 +319,7 @@ export default function ViewAllScheme() {
 
             <LocalizationProvider dateAdapter={AdapterDayjs}>
               <FilterSlot icon={<CalendarMonthRoundedIcon />} minWidth={310}>
-                <Box
-                  sx={{ display: "flex", alignItems: "center", gap: 1 }}
-                >
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <DatePicker
                     value={watch("startDate")}
                     inputFormat="DD/MM/YYYY"

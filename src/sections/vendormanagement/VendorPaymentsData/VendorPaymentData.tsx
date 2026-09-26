@@ -16,6 +16,7 @@ import VendorMoneyTransferTable from "./VendorPaymentsDataTable";
 import { useAuthContext } from "src/auth/useAuthContext";
 import Iconify from "src/components/iconify/Iconify";
 import { LoadingButton } from "@mui/lab";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 // ----------------------------------------------------------------------
 
@@ -107,25 +108,25 @@ export default function VendorPaymentData() {
     let token = localStorage.getItem("token");
     await Api(`category/get_CategoryList`, "GET", "", token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            let filterCategory = Response.data.data.filter(
-              (item: any) =>
-                item?.category_name?.toLowerCase() == "vendor payments"
-            );
-            Api(
-              `product/get_ProductList/${filterCategory[0]?._id}`,
-              "GET",
-              "",
-              token
-            ).then((Response: any) => {
-              if (Response?.status == 200) {
-                if (Response.data.code == 200) {
-                  setProductList(Response.data.data);
-                }
+        if (isOk(Response)) {
+          let filterCategory = Response.data.data.filter(
+            (item: any) =>
+              item?.category_name?.toLowerCase() == "vendor payments"
+          );
+          Api(
+            `product/get_ProductList/${filterCategory[0]?._id}`,
+            "GET",
+            "",
+            token
+          ).then((Response: any) => {
+            if (Response?.status == 200) {
+              if (Response.data.code == 200) {
+                setProductList(Response.data.data);
               }
-            });
-          }
+            }
+          });
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -135,11 +136,11 @@ export default function VendorPaymentData() {
     let token = localStorage.getItem("token");
     Api(`vendor/vendor_payment_slots/${id}`, "GET", "", token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            enqueueSnackbar(Response.data.message);
-            setSlots(Response.data?.data[0]?.slots || []);
-          }
+        if (isOk(Response)) {
+          enqueueSnackbar(Response.data.message);
+          setSlots(Response.data?.data[0]?.slots || []);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -153,12 +154,12 @@ export default function VendorPaymentData() {
     };
     Api(`vendor/vendor_payment_slots`, "POST", body, token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            enqueueSnackbar(Response.data.message);
-            reset(defaultValues);
-            setSlots(Response.data?.data?.slots || []);
-          }
+        if (isOk(Response)) {
+          enqueueSnackbar(Response.data.message);
+          reset(defaultValues);
+          setSlots(Response.data?.data?.slots || []);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );

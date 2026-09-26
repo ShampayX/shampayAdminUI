@@ -29,9 +29,12 @@ AWS.config.update({
 export default function HistoricalDataTable({ row }: any) {
   const download = (val: string) => {
     const s3 = new AWS.S3();
+    // The report Lambda stores the url with the file name percent-encoded (its
+    // ISO dates contain ':'), so decode it back to the real S3 key. Decoding an
+    // older, unencoded url is a no-op.
     const params = {
       Bucket: process.env.REACT_APP_AWS_BUCKET_NAME,
-      Key: val !== "" && val?.split("/").splice(3, 3).join("/"),
+      Key: val !== "" && decodeURIComponent(val?.split("/").splice(3, 3).join("/")),
       Expires: 600,
     };
 
@@ -41,7 +44,8 @@ export default function HistoricalDataTable({ row }: any) {
   };
 
   const status = String(row?.status || "");
-  const isReady = status.toLowerCase() === "generated";
+  const isReady = status.toLowerCase() === "generated" && Boolean(row?.url);
+  const isFailed = status.toLowerCase() === "failed";
   const isAdmin = row.user_data?.role === "ADMIN";
 
   return (
@@ -119,6 +123,12 @@ export default function HistoricalDataTable({ row }: any) {
           >
             Download
           </PageGhostButton>
+        ) : isFailed ? (
+          <Typography
+            sx={{ fontSize: 12, color: "error.main", maxWidth: 220, mx: "auto" }}
+          >
+            {row?.failure_reason || "Generation failed"}
+          </Typography>
         ) : (
           <Box
             component="span"

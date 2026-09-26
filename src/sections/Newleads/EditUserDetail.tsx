@@ -32,8 +32,10 @@ import { LoadingButton } from "@mui/lab";
 import ApiDataLoading from "src/components/CustomFunction/ApiDataLoading";
 import { fetchLocation } from "src/utils/fetchLocation";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 export default function EditUserDetail() {
+  const { enqueueSnackbar } = useSnackbar();
   const { Api } = useAuthContext();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -71,12 +73,12 @@ export default function EditUserDetail() {
       userId: id,
     };
     Api(`admin/getDetail_Agent`, "POST", body, "").then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setUserDetail(Response.data?.data);
-        }
-        setLoading(false);
+      if (isOk(Response)) {
+        setUserDetail(Response.data?.data);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
+      setLoading(false);
     });
   };
 
@@ -86,12 +88,12 @@ export default function EditUserDetail() {
       userId: id,
     };
     Api(`admin/getDetail_Agent`, "POST", body, "").then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setUserDetail(Response.data?.data);
-        }
-        setLoading(false);
+      if (isOk(Response)) {
+        setUserDetail(Response.data?.data);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
+      setLoading(false);
     });
 
     if (!id) {
@@ -416,19 +418,11 @@ const EditSelectField = ({
       isEdit &&
         (await Api(`admin/edit_user/${id}`, "POST", body, token).then(
           (Response: any) => {
-            if (Response?.status == 200) {
-              if (Response.data.code == 200) {
-                setIsEdit((prevState) => !prevState);
-                enqueueSnackbar(Response.data.message);
-              } else {
-                enqueueSnackbar(Response.data.message, {
-                  variant: "error",
-                });
-              }
+            if (isOk(Response)) {
+              setIsEdit((prevState) => !prevState);
+              enqueueSnackbar(Response.data.message);
             } else {
-              enqueueSnackbar("Failed", {
-                variant: "error",
-              });
+              notifyFailure(enqueueSnackbar, Response);
             }
           }
         ));
@@ -517,19 +511,11 @@ const EdDitInputField = ({
       isEdit &&
         (await Api(`admin/edit_user/${id}`, "POST", body, token).then(
           (Response: any) => {
-            if (Response?.status == 200) {
-              if (Response.data.code == 200) {
-                setIsEdit((prevState) => !prevState);
-                enqueueSnackbar(Response.data.message);
-              } else {
-                enqueueSnackbar(Response.data.message, {
-                  variant: "error",
-                });
-              }
+            if (isOk(Response)) {
+              setIsEdit((prevState) => !prevState);
+              enqueueSnackbar(Response.data.message);
             } else {
-              enqueueSnackbar("Failed", {
-                variant: "error",
-              });
+              notifyFailure(enqueueSnackbar, Response);
             }
           }
         ));
@@ -648,18 +634,10 @@ const EditUploadInput = ({
                 { [name]: Response.data.filePath },
                 token
               ).then((Response: any) => {
-                if (Response?.status == 200) {
-                  if (Response.data.code == 200) {
-                    enqueueSnackbar(Response.data.message);
-                  } else {
-                    enqueueSnackbar(Response.data.message, {
-                      variant: "error",
-                    });
-                  }
+                if (isOk(Response)) {
+                  enqueueSnackbar(Response.data.message);
                 } else {
-                  enqueueSnackbar("Failed", {
-                    variant: "error",
-                  });
+                  notifyFailure(enqueueSnackbar, Response);
                 }
                 handleClose1();
                 updateUser();

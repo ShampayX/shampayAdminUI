@@ -30,6 +30,7 @@ import { CustomFile } from "src/components/upload";
 import states from "src/states.json";
 import AwsDocSign from "src/components/CustomFunction/AwsDocSign";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 // ----------------------------------------------------------------------
 type RowProps = {
@@ -189,27 +190,23 @@ export default function AddNewProduct(props: any) {
           body,
           ""
         ).then((Response: any) => {
-          if (Response?.status == 200) {
-            if (Response.data.code == 200) {
-              enqueueSnackbar(Response.data.message);
-              props.closeModal();
-              reset(defaultValues);
-            } else {
-              enqueueSnackbar(Response.data.message);
-            }
+          if (isOk(Response)) {
+            enqueueSnackbar(Response.data.message);
+            props.closeModal();
+            reset(defaultValues);
+          } else {
+            notifyFailure(enqueueSnackbar, Response);
           }
         });
       } else {
         await Api(`product/add_Product`, "POST", body, "").then(
           (Response: any) => {
-            if (Response?.status == 200) {
-              if (Response.data.code == 200) {
-                enqueueSnackbar(Response.data.message);
+            if (isOk(Response)) {
+              enqueueSnackbar(Response.data.message);
 
-                reset(defaultValues);
-              } else {
-                enqueueSnackbar(Response.data.message);
-              }
+              reset(defaultValues);
+            } else {
+              notifyFailure(enqueueSnackbar, Response);
             }
           }
         );
@@ -224,12 +221,10 @@ export default function AddNewProduct(props: any) {
       const token = localStorage.getItem("token");
       await Api(`category/get_CategoryList`, "GET", "", "").then(
         (Response: any) => {
-          if (Response?.status == 200) {
-            if (Response.data.code == 200) {
-              setCdata(Response.data.data || []);
-            } else {
-              let msg = Response.data.message;
-            }
+          if (isOk(Response)) {
+            setCdata(Response.data.data || []);
+          } else {
+            notifyFailure(enqueueSnackbar, Response);
           }
         }
       );
@@ -245,12 +240,10 @@ export default function AddNewProduct(props: any) {
       };
       await Api(`category/get_SubCategoryList`, "POST", body, "").then(
         (Response: any) => {
-          if (Response?.status == 200) {
-            if (Response.data.code == 200) {
-              setSubCdata(Response.data.data.sub_category || []);
-            } else {
-              let msg = Response.data.message;
-            }
+          if (isOk(Response)) {
+            setSubCdata(Response.data.data.sub_category || []);
+          } else {
+            notifyFailure(enqueueSnackbar, Response);
           }
         }
       );
@@ -262,12 +255,10 @@ export default function AddNewProduct(props: any) {
     try {
       await Api(`vendor/get_VendorList`, "GET", "", "").then(
         (Response: any) => {
-          if (Response?.status == 200) {
-            if (Response.data.code == 200) {
-              setVdata(Response.data.data || []);
-            } else {
-              let msg = Response.data.message;
-            }
+          if (isOk(Response)) {
+            setVdata(Response.data.data || []);
+          } else {
+            notifyFailure(enqueueSnackbar, Response);
           }
         }
       );
@@ -492,8 +483,7 @@ export default function AddNewProduct(props: any) {
               {/* <MenuItem value="">
             <em>None</em>
           </MenuItem> */}
-              <MenuItem value="directagent">Direct Agent</MenuItem>
-              <MenuItem value="neonetwork">Neo Network</MenuItem>
+              {/* Item 3d: agent-network types retired - only API users remain. */}
               <MenuItem value="apiuser">API User</MenuItem>
               <MenuItem value="everyone">Everyone</MenuItem>
             </RHFSelect>
@@ -534,7 +524,8 @@ export default function AddNewProduct(props: any) {
             <em>None</em>
           </MenuItem> */}
               <MenuItem value="Main Wallet">Main Wallet</MenuItem>
-              <MenuItem value="AEPS Wallet">AEPS Wallet</MenuItem>
+              {/* "AEPS Wallet" removed - the AEPS wallet is not offered
+                  anywhere in this console. */}
             </RHFSelect>
           </FormControl>
         </div>

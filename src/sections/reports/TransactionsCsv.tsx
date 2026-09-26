@@ -140,15 +140,11 @@ export default function TransactionsCSV() {
                   sx: { textTransform: "capitalize" },
                 }}
               >
-                <MenuItem value="agent">Agent</MenuItem>
-                <MenuItem value="distributor">Distributor</MenuItem>
-                <MenuItem value="m_distributor">Master Distributor</MenuItem>
+                <MenuItem value="API_User">API User</MenuItem>
                 <MenuItem value="Admin">Admin</MenuItem>
               </RHFSelect>
               <>
-                {(watch("searchBy") === "agent" ||
-                  watch("searchBy") === "distributor" ||
-                  watch("searchBy") === "m_distributor") && (
+                {watch("searchBy") === "API_User" && (
                   <>
                     <RHFSelect
                       fullWidth

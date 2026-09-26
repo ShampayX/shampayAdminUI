@@ -102,6 +102,41 @@ type AuthProviderProps = {
   children: React.ReactNode;
 };
 
+/**
+ * Whether a response means "your session is over" (item 3d).
+ *
+ * Three forms have to be accepted because the status line moved:
+ *  - HTTP 401, the current answer for a missing or invalid token;
+ *  - `code: 401` in the body;
+ *  - `responseCode: 411` / `410`, the legacy values the body still carries.
+ */
+/**
+ * The token header for a request.
+ *
+ * 53 call sites pass `""` to endpoints that sit behind the admin guard - a habit
+ * from when the guard was lenient. `adminOnly` answers **401** with no token and
+ * **410 "Invalid token provided."** for one it cannot verify, and the old header
+ * sent `null`, which arrives as the literal string "null" and fails
+ * verification. So those calls were already failing; with session expiry now
+ * handled (item 3d) they would also sign the operator out mid-task.
+ *
+ * Falling back to the stored token fixes all of them in one place. An endpoint
+ * that genuinely takes no token (admin login) ignores the header, so sending it
+ * costs nothing.
+ */
+const authToken = (token: any): string | null => {
+  if (token) return String(token);
+  const stored = localStorage.getItem("token");
+  return stored ? stored : null;
+};
+
+const isExpiredSession = (httpStatus: number, body: any): boolean =>
+  httpStatus === 401 ||
+  Number(body?.code) === 401 ||
+  Number(body?.code) === 410 ||
+  Number(body?.responseCode) === 411 ||
+  Number(body?.responseCode) === 410;
+
 export function AuthProvider({ children }: AuthProviderProps) {
   const siteUrl = process.env.REACT_APP_BASE_URL;
   const [state, dispatch] = useReducer(reducer, initialState);
@@ -226,7 +261,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             cache: "no-store",
             headers: {
               "Content-Type": "application/json",
-              token: token ? token : null,
+              token: authToken(token),
               latitude: localStorage.getItem("lat"),
               longitude: localStorage.getItem("long"),
               ip: localStorage.getItem("ip")?.toString(),
@@ -239,7 +274,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             cache: "no-store",
             headers: {
               "Content-Type": "application/json",
-              token: token ? token : null,
+              token: authToken(token),
               latitude: localStorage.getItem("lat"),
               longitude: localStorage.getItem("long"),
               ip: localStorage.getItem("ip")?.toString(),
@@ -257,7 +292,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
             data: data,
           };
 
-          if (apiData.data.code == 410) {
+          // Item 3d: sessions expire now - admin after 2 hours - and a missing
+          // or invalid token answers **401**. It used to answer HTTP 411, this
+          // backend's internal "no token" value leaking into the status line, so
+          // a handler for 401 could never have fired. The body still carries
+          // `responseCode: 411`, so both forms are accepted.
+          //
+          // Dispatching LOGOUT is what redirects: AuthGuard renders the login
+          // screen as soon as `isAuthenticated` goes false. Returning without a
+          // response stops the caller toasting an error over the login screen.
+          if (isExpiredSession(res.status, apiData.data)) {
+            localStorage.removeItem("token");
             dispatch({
               type: Types.LOGOUT,
             });
@@ -277,7 +322,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       method: "POST",
 
       headers: {
-        token: token ? token : null,
+        token: authToken(token),
         latitude: localStorage.getItem("lat"),
         longitude: localStorage.getItem("long"),
         ip: localStorage.getItem("ip")?.toString(),
@@ -293,7 +338,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
             status: res.status,
             data: data,
           };
-          if (apiData.data.code == 410) {
+          // Item 3d: sessions expire now - admin after 2 hours - and a missing
+          // or invalid token answers **401**. It used to answer HTTP 411, this
+          // backend's internal "no token" value leaking into the status line, so
+          // a handler for 401 could never have fired. The body still carries
+          // `responseCode: 411`, so both forms are accepted.
+          //
+          // Dispatching LOGOUT is what redirects: AuthGuard renders the login
+          // screen as soon as `isAuthenticated` goes false. Returning without a
+          // response stops the caller toasting an error over the login screen.
+          if (isExpiredSession(res.status, apiData.data)) {
+            localStorage.removeItem("token");
             dispatch({
               type: Types.LOGOUT,
             });

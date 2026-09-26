@@ -64,6 +64,7 @@ import {
   EmptyState,
   LoadingState,
 } from "src/components/page-kit";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 // ----------------------------------------------------------------------
 // Money Movement.
@@ -323,14 +324,10 @@ export default function FundFlow() {
     };
     await Api(`adminTransaction/fund_flow_transaction`, "POST", body, token)
       .then((Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            applyResponse(Response);
-          } else {
-            enqueueSnackbar(Response.data.message, { variant: "error" });
-          }
+        if (isOk(Response)) {
+          applyResponse(Response);
         } else {
-          enqueueSnackbar("Failed", { variant: "error" });
+          notifyFailure(enqueueSnackbar, Response);
         }
         isSearchLoading(false);
       })
@@ -408,7 +405,9 @@ export default function FundFlow() {
                 getOptionLabel={(option: any) =>
                   typeof option === "string"
                     ? option
-                    : `${option.firstName || ""} ${option.lastName || ""}`.trim()
+                    : `${option.firstName || ""} ${
+                        option.lastName || ""
+                      }`.trim()
                 }
                 onInputChange={(_, value, reason) => {
                   if (reason === "input") {
@@ -869,9 +868,9 @@ export default function FundFlow() {
                         <Grid item xs={12} sm={6}>
                           <Tile
                             label="Checked By"
-                            value={`${
-                              item.checkStatusDoneBy.firstName || ""
-                            } ${item.checkStatusDoneBy.lastName || ""} ${
+                            value={`${item.checkStatusDoneBy.firstName || ""} ${
+                              item.checkStatusDoneBy.lastName || ""
+                            } ${
                               item.checkStatusDoneBy.userCode
                                 ? `(${item.checkStatusDoneBy.userCode})`
                                 : ""
@@ -969,7 +968,9 @@ const MovementRow = React.memo(({ row, onDetail, onHistory }: any) => {
 
       {/* Amount */}
       <TableCell align="right">
-        <Typography sx={{ fontSize: 14, fontWeight: 700, whiteSpace: "nowrap" }}>
+        <Typography
+          sx={{ fontSize: 14, fontWeight: 700, whiteSpace: "nowrap" }}
+        >
           {fIndianCurrency(+row?.amount) || "₹0"}
         </Typography>
       </TableCell>
@@ -998,7 +999,9 @@ const MovementRow = React.memo(({ row, onDetail, onHistory }: any) => {
       {/* Actions */}
       <TableCell align="center">
         <Stack direction="row" spacing={1} justifyContent="center">
-          <PageGhostButton onClick={() => onDetail(row)}>Detail</PageGhostButton>
+          <PageGhostButton onClick={() => onDetail(row)}>
+            Detail
+          </PageGhostButton>
           {hasHistory && (
             <PageGhostButton
               startIcon={<HistoryOutlinedIcon />}

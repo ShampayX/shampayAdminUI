@@ -52,6 +52,7 @@ import {
 import FileDownloadOutlinedIcon from "@mui/icons-material/FileDownloadOutlined";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import Scrollbar from "src/components/scrollbar/Scrollbar";
+import { isOk, notifyOk, notifyFailure } from "src/utils/apiResult";
 
 function BankMaster() {
   const style = {
@@ -83,7 +84,7 @@ function BankMaster() {
     status: string;
     impsStatus: string;
     neftStatus: string;
-    tramoShortCode: string;
+    internalShortCode: string;
     name: string;
   };
 
@@ -96,7 +97,7 @@ function BankMaster() {
     status: "",
     impsStatus: "",
     neftStatus: "",
-    tramoShortCode: "",
+    internalShortCode: "",
     name: "",
   };
 
@@ -115,7 +116,11 @@ function BankMaster() {
     { id: "Action", label: "Action" },
     { id: "bankName", label: "Bank Name", sortKey: "bankName" },
     { id: "shortCode", label: "Short Code", sortKey: "shortCode" },
-    { id: "FingpayAEPSIIN", label: "Fingpay AEPSIIN", sortKey: "FingpayAEPSIIN" },
+    {
+      id: "FingpayAEPSIIN",
+      label: "Fingpay AEPSIIN",
+      sortKey: "FingpayAEPSIIN",
+    },
     { id: "FingpayAPIIN", label: "Fingpay APIIN", sortKey: "FingpayAPIIN" },
     { id: "masterIFSC", label: "Master IFSC", sortKey: "masterIFSC" },
     { id: "ekoBankId", label: "Eko Bank Id", sortKey: "ekoBankId" },
@@ -161,18 +166,15 @@ function BankMaster() {
     GetBankData();
   }, []);
 
-
   const GetBankData = () => {
     let token = localStorage.getItem("token");
     Api(`bankManagement/get_bank`, "GET", "", token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          enqueueSnackbar(Response?.data?.message);
+      if (isOk(Response)) {
+        enqueueSnackbar(Response?.data?.message);
 
-          setBankList(Response?.data?.data);
-        } else {
-          enqueueSnackbar(Response?.data?.err);
-        }
+        setBankList(Response?.data?.data);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -188,18 +190,24 @@ function BankMaster() {
       impsStatus: data?.impsStatus,
       neftStatus: data?.neftStatus,
       isVerificationAvailable: data?.isVerificationAvailable,
-      tramoShortCode: data?.tramoShortCode,
+      // Item 3f: this field was `tramoShortCode`. `create_bank` reads
+      // `internalShortCode` straight off the request body, so the old name saved
+      // successfully with the value silently dropped - no error, no warning.
+      internalShortCode: data?.internalShortCode,
       name: data?.name,
     };
 
     Api(`bankManagement/create_bank`, "POST", body, token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          enqueueSnackbar(Response?.data?.message);
+        // Item 1b: success was toasted on the transport status alone. The failure
+        // branch read `data.err`, which the `{ code, message }` contract does not
+        // set, so a refused create showed an empty toast.
+        if (isOk(Response)) {
+          notifyOk(enqueueSnackbar, Response, "Bank created.");
           handleClose();
           GetBankData();
         } else {
-          enqueueSnackbar(Response?.data?.err);
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -222,7 +230,10 @@ function BankMaster() {
             >
               Export
             </PageActionButton>
-            <PageActionButton startIcon={<AddIcon />} onClick={() => setOpen(true)}>
+            <PageActionButton
+              startIcon={<AddIcon />}
+              onClick={() => setOpen(true)}
+            >
               Add New Bank
             </PageActionButton>
           </>
@@ -339,7 +350,7 @@ function BankMaster() {
                   size="small"
                 />
                 <RHFTextField
-                  name="tramoShortCode"
+                  name="internalShortCode"
                   label="Shampay ShortCode"
                   size="small"
                   placeholder="Shampay ShortCode"
@@ -388,7 +399,7 @@ function BankRow({ row, GetBankData }: childProps) {
       bankName: row?.bankName,
       name: row?.name,
       shortCode: row?.shortCode,
-      tramoShortCode: row?.tramoShortCode,
+      internalShortCode: row?.internalShortCode,
       ekoBankId: row?.ekoBankId,
       bankId: val._id,
       FingpayAEPSIIN: row?.FingpayAEPSIIN,
@@ -397,14 +408,12 @@ function BankRow({ row, GetBankData }: childProps) {
     if (row.masterIFSC != "") {
       Api(`bankManagement/updateBank`, "POST", body, token).then(
         (Response: any) => {
-          if (Response?.status == 200) {
-            if (Response.data.code == 200) {
-              setEditTrue(!editTrue);
-              enqueueSnackbar(Response.data.message);
-              GetBankData(); // Refresh the table after updating a bank
-            } else {
-              enqueueSnackbar(Response.data.message);
-            }
+          if (isOk(Response)) {
+            setEditTrue(!editTrue);
+            enqueueSnackbar(Response.data.message);
+            GetBankData(); // Refresh the table after updating a bank
+          } else {
+            notifyFailure(enqueueSnackbar, Response);
           }
         }
       );
@@ -419,13 +428,11 @@ function BankRow({ row, GetBankData }: childProps) {
     if (row.masterIFSC != "") {
       Api(`bankManagement/delete`, "POST", body, token).then(
         (Response: any) => {
-          if (Response?.status == 200) {
-            if (Response.data.code == 200) {
-              enqueueSnackbar(Response.data.message);
-              GetBankData(); // Refresh the table after deleting a bank
-            } else {
-              enqueueSnackbar(Response.data.message);
-            }
+          if (isOk(Response)) {
+            enqueueSnackbar(Response.data.message);
+            GetBankData(); // Refresh the table after deleting a bank
+          } else {
+            notifyFailure(enqueueSnackbar, Response);
           }
         }
       );
@@ -576,7 +583,6 @@ function BankRow({ row, GetBankData }: childProps) {
           )}
         </Typography>
       </TableCell>
-
     </KitRow>
   );
 }

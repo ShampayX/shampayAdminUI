@@ -13,6 +13,7 @@ import FormProvider, { RHFSelect } from "../../../components/hook-form";
 import { useSnackbar } from "notistack";
 import VendorAepsDataTable from "./VendorAepsDataTable";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 // ----------------------------------------------------------------------
 
@@ -78,11 +79,10 @@ export default function VendorAepsData() {
   const getvendorlist = () => {
     let token = localStorage.getItem("token");
     Api(`vendor/get_VendorList`, "GET", "", token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setVdata(Response.data.data);
-        } else {
-        }
+      if (isOk(Response)) {
+        setVdata(Response.data.data);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -90,12 +90,11 @@ export default function VendorAepsData() {
   const aepsSlotFormat = () => {
     let token = localStorage.getItem("token");
     Api(`vendor/showAepsSlot`, "GET", "", token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          // enqueueSnackbar(Response.data?.message);
-          setAepsSlotData(Response.data?.data?.slotsData?.vendor_slots);
-        } else {
-        }
+      if (isOk(Response)) {
+        // enqueueSnackbar(Response.data?.message);
+        setAepsSlotData(Response.data?.data?.slotsData?.vendor_slots);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };

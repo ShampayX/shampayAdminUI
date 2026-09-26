@@ -50,6 +50,7 @@ import {
 } from "src/components/page-kit";
 //
 import MapSchemeRow, { SchemeMappingRow, roleLabel } from "./MapSchemeTable";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 // ----------------------------------------------------------------------
 // Plans > Scheme Assignment (internally "map scheme").
@@ -84,11 +85,12 @@ type FormValuesProps = {
   schemeDescription: string;
 };
 
-const ROLE_OPTIONS = [
-  { value: "agent", label: "Agent" },
-  { value: "distributor", label: "Distributor" },
-  { value: "m_distributor", label: "Master Distributor" },
-];
+// Item 3d: roles are only `Admin` and `API_User` now, so the agent-network roles
+// are gone from this filter. Historical users with those roles still exist in the
+// data and still render wherever a row shows its own role - this list is what an
+// operator can PICK, and picking one would filter to a population that can no
+// longer be created.
+const ROLE_OPTIONS = [{ value: "API_User", label: "API User" }];
 
 export default function ProductSettingPage() {
   const { Api } = useAuthContext();
@@ -235,6 +237,8 @@ export default function ProductSettingPage() {
 
   function getDistributor(val: any) {
     setschemeT(val);
+    // Item 3d: `getUserList_ViaRole` no longer accepts `schemeType` - it took
+    // `schemeType: 'directAgent'` and does not any more, so only `role` is sent.
     let body = {
       role:
         val == "directagent"
@@ -242,16 +246,18 @@ export default function ProductSettingPage() {
           : val == "neonetwork"
           ? "distributor"
           : "API_User",
-      schemeType: val,
     };
     Api("admin/getUserList_ViaRole", "POST", body, token).then(
       (Response: any) => {
         if (Response?.status == 200 && Response.data.code == 200) {
-          /* "Direct agent" means an agent with no referral code. */
+          /* Item 3d: "direct agent" used to mean an agent with no referral
+             code, but `referralCode` was removed from the user record - the
+             old test is `undefined === ""` against the new payload, which is
+             false for every row and emptied this dropdown. Role alone now. */
           if (val == "directagent") {
             setDistributor(
               (Response.data.data || []).filter(
-                (item: any) => item.referralCode === "" && item.role === "agent"
+                (item: any) => item.role === "agent"
               )
             );
           } else {
@@ -274,15 +280,13 @@ export default function ProductSettingPage() {
     };
 
     Api(`scheme/map_Scheme`, "POST", body, token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setModalEditPopUp(false);
-          reset(defaultValues);
-          enqueueSnackbar(Response.data.message);
-          mapSchemeList();
-        } else {
-          enqueueSnackbar(Response.data.message, { variant: "error" });
-        }
+      if (isOk(Response)) {
+        setModalEditPopUp(false);
+        reset(defaultValues);
+        enqueueSnackbar(Response.data.message);
+        mapSchemeList();
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -620,18 +624,8 @@ export default function ProductSettingPage() {
                     sx: { textTransform: "capitalize" },
                   }}
                 >
-                  <MenuItem
-                    value="directagent"
-                    onClick={() => getDistributor("directagent")}
-                  >
-                    Direct Agent
-                  </MenuItem>
-                  <MenuItem
-                    value="neonetwork"
-                    onClick={() => getDistributor("neonetwork")}
-                  >
-                    Distribution
-                  </MenuItem>
+                  {/* Item 3d: the agent-network scheme types are retired - roles
+                      are only Admin and API_User now. */}
                   <MenuItem
                     value="apiuser"
                     onClick={() => getDistributor("apiuser")}

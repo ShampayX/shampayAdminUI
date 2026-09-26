@@ -20,6 +20,7 @@ import {
 } from "src/components/page-kit";
 import AddIcon from "@mui/icons-material/Add";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import { isOk, notifyOk, notifyFailure } from "src/utils/apiResult";
 
 type FormValuesProps = {
   SUBJECT: string;
@@ -112,10 +113,13 @@ function EmailTemplate() {
     };
     Api(`EmailTemplate/addEmailTemplate`, "POST", body, "").then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          enqueueSnackbar(Response.data.message);
+        // Item 1b: success was toasted on the transport status alone, and the
+        // failure branch was empty - a refused save looked like a completed one.
+        if (isOk(Response)) {
+          notifyOk(enqueueSnackbar, Response, "Template added.");
           handleClose();
         } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -154,10 +158,18 @@ function EmailTemplate() {
         tableData={templateList}
         tableLabels={[
           { id: "action", label: "Action" },
-          { id: "TEMPLATE_NAME", label: "Template Name", sortKey: "TEMPLATE_NAME" },
+          {
+            id: "TEMPLATE_NAME",
+            label: "Template Name",
+            sortKey: "TEMPLATE_NAME",
+          },
           { id: "TEMPLATE_ID", label: "Template Id", sortKey: "TEMPLATE_ID" },
           { id: "SUBJECT", label: "Subject", sortKey: "SUBJECT" },
-          { id: "SOURCE_EMAIL", label: "Source Email", sortKey: "SOURCE_EMAIL" },
+          {
+            id: "SOURCE_EMAIL",
+            label: "Source Email",
+            sortKey: "SOURCE_EMAIL",
+          },
           {
             id: "BUSINESS_CATEGORY",
             label: "Business Category",
@@ -168,7 +180,11 @@ function EmailTemplate() {
           { id: "IS_TRANSACTIONAL", label: "Transactional" },
           { id: "IS_ACTIVE", label: "Active", sortKey: "IS_ACTIVE" },
           { id: "EMAIL_TYPE", label: "Email Type", sortKey: "EMAIL_TYPE" },
-          { id: "EMAIL_SERVICE", label: "Email Service", sortKey: "EMAIL_SERVICE" },
+          {
+            id: "EMAIL_SERVICE",
+            label: "Email Service",
+            sortKey: "EMAIL_SERVICE",
+          },
           { id: "CAUSE_ID", label: "Cause Id" },
           { id: "TEMPLATE_CONTENT", label: "Content" },
         ]}
@@ -188,8 +204,12 @@ function EmailTemplate() {
               width={980}
               actions={
                 <>
-                  <PageGhostButton onClick={handleClose}>Cancel</PageGhostButton>
-                  <PageActionButton type="submit">Add Template</PageActionButton>
+                  <PageGhostButton onClick={handleClose}>
+                    Cancel
+                  </PageGhostButton>
+                  <PageActionButton type="submit">
+                    Add Template
+                  </PageActionButton>
                 </>
               }
             >

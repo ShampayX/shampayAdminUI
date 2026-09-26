@@ -34,6 +34,7 @@ import FormProvider, {
 } from "../../../components/hook-form";
 import ApiDataLoading from "src/components/CustomFunction/ApiDataLoading";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 // import { Label } from '@mui/icons-material';
 
@@ -87,14 +88,12 @@ export default function BMmoneyTransfer() {
   const getBank = () => {
     setBankData(false);
     Api(`bankManagement/get_bank`, "GET", "", "").then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          enqueueSnackbar(Response.data.message);
-          setBankList(Response.data.data);
-          setBankData(true);
-        } else {
-          enqueueSnackbar(Response.data.message);
-        }
+      if (isOk(Response)) {
+        enqueueSnackbar(Response.data.message);
+        setBankList(Response.data.data);
+        setBankData(true);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -108,13 +107,11 @@ export default function BMmoneyTransfer() {
     };
     Api(`bankManagement/create_bank`, "POST", body, token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            enqueueSnackbar(Response.data.message);
-            handleClose();
-          } else {
-            enqueueSnackbar(Response.data.message);
-          }
+        if (isOk(Response)) {
+          enqueueSnackbar(Response.data.message);
+          handleClose();
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -303,13 +300,11 @@ function BankRow({ row }: childProps) {
     if (row.masterIFSC != "") {
       Api(`bankManagement/edit_bank_IFSC/${val._id}`, "POST", body, token).then(
         (Response: any) => {
-          if (Response?.status == 200) {
-            if (Response.data.code == 200) {
-              setEditTrue(!editTrue);
-              enqueueSnackbar(Response.data.message);
-            } else {
-              enqueueSnackbar(Response.data.message);
-            }
+          if (isOk(Response)) {
+            setEditTrue(!editTrue);
+            enqueueSnackbar(Response.data.message);
+          } else {
+            notifyFailure(enqueueSnackbar, Response);
           }
         }
       );

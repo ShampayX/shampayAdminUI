@@ -20,8 +20,11 @@ import {
   Select,
 } from "@mui/material";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure } from "src/utils/apiResult";
+import { useSnackbar } from "src/components/snackbar";
 
 export default function Autocollecttable() {
+  const { enqueueSnackbar } = useSnackbar();
   const { Api } = useAuthContext();
   const [category, setCategory] = useState<any>([]);
   const [open, setModalEdit] = useState(false);
@@ -35,11 +38,10 @@ export default function Autocollecttable() {
   const AuttoCollect = () => {
     let token = localStorage.getItem("token");
     Api(`admin/autoCollect/fetch`, "GET", "", token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setCategory(Response?.data?.data);
-        } else {
-        }
+      if (isOk(Response)) {
+        setCategory(Response?.data?.data);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };

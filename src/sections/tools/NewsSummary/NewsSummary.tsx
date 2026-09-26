@@ -53,6 +53,7 @@ import {
   useDataTable,
   exportToExcel,
 } from "src/components/page-kit";
+import { isOk, notifyOk, notifyFailure } from "src/utils/apiResult";
 
 // ----------------------------------------------------------------------
 // Utilities > News Summary.
@@ -168,16 +169,18 @@ const NewsSummary = () => {
         token
       );
 
-      if (res?.status === 200) {
-        enqueueSnackbar("News flash status updated successfully.", {
-          variant: "success",
-        });
+      // Item 1b: success was toasted on the transport status alone, so a toggle
+      // the backend refused was reported as applied and the list was not refetched.
+      if (isOk(res)) {
+        notifyOk(
+          enqueueSnackbar,
+          res,
+          "News flash status updated successfully."
+        );
         setConfirming(null);
         getNews();
       } else {
-        enqueueSnackbar(res?.data?.message || "Failed to update status", {
-          variant: "warning",
-        });
+        notifyFailure(enqueueSnackbar, res);
       }
     } catch (err) {
       enqueueSnackbar("Something went wrong while updating status.", {
@@ -478,7 +481,9 @@ const NewsSummary = () => {
                   </TableCell>
 
                   <TableCell>
-                    <StatusPill status={item.isActive ? "Active" : "Inactive"} />
+                    <StatusPill
+                      status={item.isActive ? "Active" : "Inactive"}
+                    />
                   </TableCell>
                 </KitRow>
               ))}
@@ -548,7 +553,9 @@ const NewsSummary = () => {
       <ConfirmDialog
         open={Boolean(confirming)}
         onClose={() => !toggling && setConfirming(null)}
-        title={`${confirming?.isActive ? "Deactivate" : "Activate"} this flash?`}
+        title={`${
+          confirming?.isActive ? "Deactivate" : "Activate"
+        } this flash?`}
         content={
           confirming?.isActive
             ? `"${confirming?.title}" stops showing to partners straight away.`

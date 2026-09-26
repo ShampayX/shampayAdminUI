@@ -28,6 +28,7 @@ import MotionModal from "src/components/animate/MotionModal";
 import { Icon } from "@iconify/react";
 import ApiDataLoading from "src/components/CustomFunction/ApiDataLoading";
 import { SchemeDetail } from "../ManageScheme/EditScheme";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 // ----------------------------------------------------------------------
 
 type FormValuesProps = {
@@ -171,19 +172,24 @@ export default function EditRecharges() {
     const body = data;
     let token = localStorage.getItem("token");
     Api(`scheme/edit_subscheme`, "POST", body, token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setEdit(false);
-          enqueueSnackbar("Scheme update Successfull !");
-        } else {
-          enqueueSnackbar(Response.data.message);
-        }
+      if (isOk(Response)) {
+        setEdit(false);
+        enqueueSnackbar("Scheme update Successfull !");
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
 
   if (isLoading) {
-    return <ApiDataLoading variant="table" columns={tableLabels} rows={6} minWidth={720} />;
+    return (
+      <ApiDataLoading
+        variant="table"
+        columns={tableLabels}
+        rows={6}
+        minWidth={720}
+      />
+    );
   }
 
   return (

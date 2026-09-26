@@ -30,6 +30,7 @@ import {
   TableSkeleton,
   PageGhostButton,
 } from "src/components/page-kit";
+import { isOk, notifyOk, notifyFailure } from "src/utils/apiResult";
 
 // ----------------------------------------------------------------------
 // Bill Payments > Products.
@@ -283,11 +284,13 @@ const ProductRow = React.memo(({ row }: any) => {
 
     Api("product/editBbpsProductById", "POST", body, token).then(
       (Response: any) => {
-        if (Response?.status === 200) {
-          enqueueSnackbar(Response?.data?.message || "Product updated");
+        // Item 1b: this reported success on the transport status alone, so a
+        // `{ code: 404, message: "Product not found." }` was toasted as a save.
+        if (isOk(Response)) {
+          notifyOk(enqueueSnackbar, Response, "Product updated");
           setEditable(false);
         } else {
-          enqueueSnackbar("Failed", { variant: "error" });
+          notifyFailure(enqueueSnackbar, Response);
         }
         setSaving(false);
       }
@@ -313,7 +316,9 @@ const ProductRow = React.memo(({ row }: any) => {
       </TableCell>
 
       <TableCell sx={{ verticalAlign: "top" }}>
-        <Typography sx={{ fontSize: 13.5 }}>{item?.operatorid || "-"}</Typography>
+        <Typography sx={{ fontSize: 13.5 }}>
+          {item?.operatorid || "-"}
+        </Typography>
       </TableCell>
 
       <TableCell sx={{ verticalAlign: "top" }}>

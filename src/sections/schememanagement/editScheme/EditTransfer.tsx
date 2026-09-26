@@ -29,6 +29,7 @@ import MotionModal from "src/components/animate/MotionModal";
 import { Icon } from "@iconify/react";
 import ApiDataLoading from "src/components/CustomFunction/ApiDataLoading";
 import { SchemeDetail } from "../ManageScheme/EditScheme";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 // ----------------------------------------------------------------------
 
 type FormValuesProps = {
@@ -112,25 +113,25 @@ export default function EditTransfer() {
     setIsFetchSlots(true);
     let token = localStorage.getItem("token");
     Api(`vendor/transferSlots`, "GET", "", token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          let arr: any = [];
-          Response.data.data[0].slots.map((item: any) => {
-            arr.push({
-              _id: item._id,
-              minSlab: item.minSlab,
-              maxSlab: item.maxSlab,
-              chargeType: "",
-              agentCharge: "",
-              apiUserCharge: "",
-              commissionType: "",
-              distributorCommission: "",
-              masterDistributorCommission: "",
-            });
+      if (isOk(Response)) {
+        let arr: any = [];
+        Response.data.data[0].slots.map((item: any) => {
+          arr.push({
+            _id: item._id,
+            minSlab: item.minSlab,
+            maxSlab: item.maxSlab,
+            chargeType: "",
+            agentCharge: "",
+            apiUserCharge: "",
+            commissionType: "",
+            distributorCommission: "",
+            masterDistributorCommission: "",
           });
-          setUpdatedSlots(arr);
-          handleOpen();
-        }
+        });
+        setUpdatedSlots(arr);
+        handleOpen();
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
       setIsFetchSlots(false);
     });
@@ -174,19 +175,24 @@ export default function EditTransfer() {
     const body = data;
     let token = localStorage.getItem("token");
     Api(`scheme/edit_subscheme`, "POST", body, token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setEdit(false);
-          enqueueSnackbar("Scheme update Successfull !");
-        } else {
-          enqueueSnackbar(Response.data.message);
-        }
+      if (isOk(Response)) {
+        setEdit(false);
+        enqueueSnackbar("Scheme update Successfull !");
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
 
   if (isLoading) {
-    return <ApiDataLoading variant="table" columns={tableLabels} rows={6} minWidth={720} />;
+    return (
+      <ApiDataLoading
+        variant="table"
+        columns={tableLabels}
+        rows={6}
+        minWidth={720}
+      />
+    );
   }
 
   return (

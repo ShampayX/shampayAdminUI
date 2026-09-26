@@ -63,6 +63,7 @@ import AddIcon from "@mui/icons-material/Add";
 import AccountBalanceOutlinedIcon from "@mui/icons-material/AccountBalanceOutlined";
 import SwapHorizOutlinedIcon from "@mui/icons-material/SwapHorizOutlined";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 type FormValuesProps = {
   bank: {
@@ -81,17 +82,14 @@ type FormValuesProps = {
     modeId: string;
     modeName: string;
     transactionFeeType: string;
+    /* API User is the only role ShampayX has. The bank document still carries
+       for_Agent / for_Distributor / for_M_Distributor as legacy data; nothing
+       here reads or writes them. */
     transactionFeeOption: {
       for_API_user: string;
-      for_Agent: string;
-      for_Distributor: string;
-      for_M_Distributor: string;
     };
     transactionFeeValue: {
       for_API_user: string;
-      for_Agent: string;
-      for_Distributor: string;
-      for_M_Distributor: string;
     };
   }[];
 };
@@ -167,15 +165,18 @@ export default function AddBankAccount() {
     [adminBankList]
   );
 
-  const visibleToCount = React.useMemo(() => {
+  /* The deposit window the selected bank accepts, as one readable range.
+     This replaces the old "Visible To" tile: with the roles collapsed to
+     { Admin, API_User } there is only ever one audience, so counting it
+     told the operator nothing. */
+  const depositRange = React.useMemo(() => {
     const bank = selectBank[0];
-    if (!bank) return 0;
-    return [
-      bank.visibleTo_API_User,
-      bank.visibleTo_Agent,
-      bank.visibleTo_Distributor,
-      bank.visibleTo_M_Distributor,
-    ].filter(Boolean).length;
+    if (!bank) return "—";
+    const min = Number(bank.min_Deposit_Amount ?? 0);
+    const max = Number(bank.max_Deposit_Amount ?? 0);
+    if (!min && !max) return "Not set";
+    const money = (n: number) => `₹${new Intl.NumberFormat("en-IN").format(n)}`;
+    return `${money(min)} – ${money(max)}`;
   }, [selectBank]);
   const [inputValue, setInputValue] = useState<string | null>("");
   const [modeList, setModeList] = useState([]);
@@ -229,37 +230,33 @@ export default function AddBankAccount() {
     let token = localStorage.getItem("token");
     Api("bankManagement/get_bank", "GET", "", token).then((Response: any) => {
       console.log("==============>>>fatch beneficiary Response", Response);
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setBanksList(
-            Response.data.data.filter((item: any) => {
-              if (item.ekoBankId) {
-                return item;
-              }
-            })
-          );
-          Api(`admin/fundManagement/get_modes`, "GET", "", token).then(
-            (Response: any) => {
-              console.log("======Modes List==response=====>" + Response);
-              if (Response?.status == 200) {
-                if (Response.data.code == 200) {
-                  setModesList(Response.data.data);
-                  if (val === "add") {
-                    setOpen(true);
-                    setLoading(false);
-                  } else {
-                    setOpen1(true);
-                    setLoadingEdit(false);
-                  }
-                } else {
-                  enqueueSnackbar(Response.data.message, { variant: "error" });
-                }
-              }
+      if (isOk(Response)) {
+        setBanksList(
+          Response.data.data.filter((item: any) => {
+            if (item.ekoBankId) {
+              return item;
             }
-          );
-        } else {
-          enqueueSnackbar(Response.data.message, { variant: "error" });
-        }
+          })
+        );
+        Api(`admin/fundManagement/get_modes`, "GET", "", token).then(
+          (Response: any) => {
+            console.log("======Modes List==response=====>" + Response);
+            if (isOk(Response)) {
+              setModesList(Response.data.data);
+              if (val === "add") {
+                setOpen(true);
+                setLoading(false);
+              } else {
+                setOpen1(true);
+                setLoadingEdit(false);
+              }
+            } else {
+              notifyFailure(enqueueSnackbar, Response);
+            }
+          }
+        );
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -275,14 +272,8 @@ export default function AddBankAccount() {
             let modes: any = [];
             let visibleFor: any = [];
             arr.push(Response.data.data[0]);
-            if (Response.data.data[0]?.visibleTo_API_User)
-              visibleFor.push("Api User");
-            if (Response.data.data[0]?.visibleTo_Agent)
-              visibleFor.push("Agent");
-            if (Response.data.data[0]?.visibleTo_Distributor)
-              visibleFor.push("Distributor");
-            if (Response.data.data[0]?.visibleTo_M_Distributor)
-              visibleFor.push("Master Distributor");
+            /* API User is the only audience there is. */
+            visibleFor.push("Api User");
             Response.data.data[0]?.modes_of_transfer?.map((row: any) => {
               modes.push({ _id: row.modeId, transfer_mode_name: row.modeName });
             });
@@ -317,11 +308,7 @@ export default function AddBankAccount() {
       adminBankList.map((item: any) => {
         if (item._id === val) {
           arr.push(item);
-          if (item?.visibleTo_API_User) visibleFor.push("Api User");
-          if (item?.visibleTo_Agent) visibleFor.push("Agent");
-          if (item?.visibleTo_Distributor) visibleFor.push("Distributor");
-          if (item?.visibleTo_M_Distributor)
-            visibleFor.push("Master Distributor");
+          visibleFor.push("Api User");
           item?.modes_of_transfer?.map((row: any) => {
             modes.push({ _id: row.modeId, transfer_mode_name: row.modeName });
           });
@@ -375,16 +362,11 @@ export default function AddBankAccount() {
     Api("admin/fundManagement/add_mode", "POST", body, "").then(
       (Response: any) => {
         console.log("==========>> Se vender List", Response);
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            handleClose2();
-            getModesList();
-          } else {
-            console.log(
-              "==============>>> post mobile number",
-              Response.massage
-            );
-          }
+        if (isOk(Response)) {
+          handleClose2();
+          getModesList();
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -396,16 +378,14 @@ export default function AddBankAccount() {
     Api(`admin/fundManagement/get_modes/`, "GET", "", token).then(
       (Response: any) => {
         console.log("======Modes List==response=====>" + Response);
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            console.log(
-              "===============Get modes list >>>>>>>>>>",
-              Response.data.data
-            );
-            setModeList(Response.data.data);
-          } else {
-            console.log("======BankList=======>" + Response);
-          }
+        if (isOk(Response)) {
+          console.log(
+            "===============Get modes list >>>>>>>>>>",
+            Response.data.data
+          );
+          setModeList(Response.data.data);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -454,7 +434,7 @@ export default function AddBankAccount() {
               </PageActionButton>
             }
           />
-      
+
           <StatGrid columns={3}>
             <StatCard
               label="Bank Accounts"
@@ -465,14 +445,16 @@ export default function AddBankAccount() {
             <StatCard
               label="Modes On This Bank"
               value={selectBank[0]?.modes_of_transfer?.length || 0}
-              caption={selectBank[0]?.bank_details?.bank_name || "No bank selected"}
+              caption={
+                selectBank[0]?.bank_details?.bank_name || "No bank selected"
+              }
               tone="primary"
               icon={<SwapHorizOutlinedIcon />}
             />
             <StatCard
-              label="Visible To"
-              value={visibleToCount}
-              caption="Roles that can see this bank"
+              label="Deposit Range"
+              value={depositRange}
+              caption="Accepted per deposit on this bank"
               tone="neutral"
               icon={<VisibilityOutlinedIcon />}
             />
@@ -487,122 +469,228 @@ export default function AddBankAccount() {
           )}
 
           {adminBankList.length > 0 && (
-  <Card sx={{ p: 2, mb: 3, borderRadius: 2, boxShadow: "0 2px 12px rgba(15,23,42,0.05)", border: (theme) => `1px solid ${theme.palette.divider}` }}>
+            <Card
+              sx={{
+                p: 2,
+                mb: 3,
+                borderRadius: 2,
+                boxShadow: "0 2px 12px rgba(15,23,42,0.05)",
+                border: (theme) => `1px solid ${theme.palette.divider}`,
+              }}
+            >
+              {/* Row 1: Bank Tabs */}
+              <Box
+                sx={{
+                  backgroundColor: (theme) =>
+                    alpha(theme.palette.grey[500], 0.08),
+                  borderRadius: 2,
+                  p: 0.5,
+                  mb: 1.5,
+                }}
+              >
+                <Tabs
+                  value={currentBank}
+                  onChange={(e, val) => {
+                    setCurrentBank(val);
+                    ChangeBankDetail(val);
+                  }}
+                  sx={{
+                    minHeight: 38,
+                    "& .MuiTab-root": {
+                      fontSize: 13,
+                      fontWeight: 500,
+                      minHeight: 38,
+                      px: 2,
+                      borderRadius: 1.5,
+                      textTransform: "none",
+                      color: "text.secondary",
+                    },
+                    "& .Mui-selected": {
+                      fontWeight: 700,
+                      color: "primary.main",
+                    },
+                    "& .MuiTabs-indicator": {
+                      backgroundColor: "primary.main",
+                      height: 3,
+                      borderRadius: 2,
+                    },
+                  }}
+                >
+                  {adminBankList.map(
+                    (item: any) =>
+                      !item.isDeleted && (
+                        <Tab
+                          key={item._id}
+                          value={item._id}
+                          label={item?.bank_details?.bank_name}
+                        />
+                      )
+                  )}
+                </Tabs>
+              </Box>
 
-    {/* Row 1: Bank Tabs */}
-    <Box sx={{ backgroundColor: (theme) => alpha(theme.palette.grey[500], 0.08), borderRadius: 2, p: 0.5, mb: 1.5 }}>
-      <Tabs
-        value={currentBank}
-        onChange={(e, val) => {
-          setCurrentBank(val);
-          ChangeBankDetail(val);
-        }}
-        sx={{
-          minHeight: 38,
-          "& .MuiTab-root": {
-            fontSize: 13, fontWeight: 500,
-            minHeight: 38, px: 2,
-            borderRadius: 1.5,
-            textTransform: "none",
-            color: "text.secondary",
-          },
-          "& .Mui-selected": { fontWeight: 700, color: "primary.main" },
-          "& .MuiTabs-indicator": {
-            backgroundColor: "primary.main",
-            height: 3, borderRadius: 2,
-          },
-        }}
-      >
-        {adminBankList.map((item: any) =>
-          !item.isDeleted && (
-            <Tab
-              key={item._id}
-              value={item._id}
-              label={item?.bank_details?.bank_name}
-            />
-          )
-        )}
-      </Tabs>
-    </Box>
+              <Divider sx={{ mb: 2 }} />
 
-    <Divider sx={{ mb: 2 }} />
-
-    {/* Row 2: Bank Details + Modes */}
-    <Grid container spacing={2}>
-      <Grid item lg={4} md={4} xs={12}>
-        <Box sx={{ backgroundColor: (theme) => alpha(theme.palette.primary.main, 0.04), borderRadius: 2, p: 2, border: (theme) => `1px solid ${alpha(theme.palette.primary.main, 0.16)}`, height: "100%" }}>
-          <Typography sx={{ fontSize: 13, fontWeight: 700, color: "primary.main", textTransform: "uppercase", letterSpacing: 0.8, mb: 1.5 }}>
-            Bank Details
-          </Typography>
-          {selectBank.map((row: any) => (
-            <Stack key={row._id} spacing={1}>
-              {[
-                { label: "Bank Name", value: row?.bank_details?.bank_name },
-                { label: "Branch", value: row?.bank_details?.branch_name },
-                { label: "Account Number", value: row?.bank_details?.account_number },
-                { label: "IFSC", value: row?.bank_details?.ifsc },
-                { label: "Address", value: row?.bank_details?.address },
-              ].map((item) => (
-                <Stack key={item.label} direction="row" justifyContent="space-between" alignItems="center"
-                  sx={{ py: 0.8, borderBottom: (theme) => `1px solid ${theme.palette.divider}` }}>
-                  <Typography sx={{ fontSize: 12, color: "text.secondary", fontWeight: 500 }}>
-                    {item.label}
-                  </Typography>
-                  <Typography sx={{ fontSize: 12, fontWeight: 600, color: "text.primary" }}>
-                    {item.value || "—"}
-                  </Typography>
-                </Stack>
-              ))}
-            </Stack>
-          ))}
-        </Box>
-      </Grid>
-
-      <Grid item lg={8} md={8} xs={12}>
-        <Box sx={{ backgroundColor: (theme) => alpha(theme.palette.primary.main, 0.04), borderRadius: 2, p: 2, border: (theme) => `1px solid ${alpha(theme.palette.primary.main, 0.16)}`, height: "100%" }}>
-          <Typography sx={{ fontSize: 13, fontWeight: 700, color: "primary.main", textTransform: "uppercase", letterSpacing: 0.8, mb: 1.5 }}>
-            Modes of Transfer
-          </Typography>
-          <Grid container spacing={2}>
-            {selectBank.map((row: any) =>
-              row?.modes_of_transfer.map((item: any) => (
-                <Grid item xs={12} sm={6} md={4} key={item._id}>
-                  <ModeCustome modeData={item} />
+              {/* Row 2: Bank Details + Modes */}
+              <Grid container spacing={2}>
+                <Grid item lg={4} md={4} xs={12}>
+                  <Box
+                    sx={{
+                      backgroundColor: (theme) =>
+                        alpha(theme.palette.primary.main, 0.04),
+                      borderRadius: 2,
+                      p: 2,
+                      border: (theme) =>
+                        `1px solid ${alpha(theme.palette.primary.main, 0.16)}`,
+                      height: "100%",
+                    }}
+                  >
+                    <Typography
+                      sx={{
+                        fontSize: 13,
+                        fontWeight: 700,
+                        color: "primary.main",
+                        textTransform: "uppercase",
+                        letterSpacing: 0.8,
+                        mb: 1.5,
+                      }}
+                    >
+                      Bank Details
+                    </Typography>
+                    {selectBank.map((row: any) => (
+                      <Stack key={row._id} spacing={1}>
+                        {[
+                          {
+                            label: "Bank Name",
+                            value: row?.bank_details?.bank_name,
+                          },
+                          {
+                            label: "Branch",
+                            value: row?.bank_details?.branch_name,
+                          },
+                          {
+                            label: "Account Number",
+                            value: row?.bank_details?.account_number,
+                          },
+                          { label: "IFSC", value: row?.bank_details?.ifsc },
+                          {
+                            label: "Address",
+                            value: row?.bank_details?.address,
+                          },
+                        ].map((item) => (
+                          <Stack
+                            key={item.label}
+                            direction="row"
+                            justifyContent="space-between"
+                            alignItems="center"
+                            sx={{
+                              py: 0.8,
+                              borderBottom: (theme) =>
+                                `1px solid ${theme.palette.divider}`,
+                            }}
+                          >
+                            <Typography
+                              sx={{
+                                fontSize: 12,
+                                color: "text.secondary",
+                                fontWeight: 500,
+                              }}
+                            >
+                              {item.label}
+                            </Typography>
+                            <Typography
+                              sx={{
+                                fontSize: 12,
+                                fontWeight: 600,
+                                color: "text.primary",
+                              }}
+                            >
+                              {item.value || "—"}
+                            </Typography>
+                          </Stack>
+                        ))}
+                      </Stack>
+                    ))}
+                  </Box>
                 </Grid>
-              ))
-            )}
-          </Grid>
-        </Box>
-      </Grid>
-    </Grid>
 
-    {/* Edit + Delete buttons back at the bottom */}
-    <Stack direction="row" spacing={1} mt={2}>
-      <LoadingButton
-        variant="contained"
-        onClick={handleOpen1}
-        loading={loadingEdit}
-        sx={{ borderRadius: 1.5, fontSize: 12, boxShadow: "none" }}
-      >
-        Edit Bank
-      </LoadingButton>
-      <LoadingButton
-        variant="outlined"
-        color="error"
-        onClick={() => setConfirmDelete(true)}
-        loading={loadingDelete}
-        sx={{ borderRadius: 1.5, fontSize: 12 }}
-      >
-        Delete Bank
-      </LoadingButton>
-    </Stack>
+                <Grid item lg={8} md={8} xs={12}>
+                  <Box
+                    sx={{
+                      backgroundColor: (theme) =>
+                        alpha(theme.palette.primary.main, 0.04),
+                      borderRadius: 2,
+                      p: 2,
+                      border: (theme) =>
+                        `1px solid ${alpha(theme.palette.primary.main, 0.16)}`,
+                      height: "100%",
+                    }}
+                  >
+                    <Typography
+                      sx={{
+                        fontSize: 13,
+                        fontWeight: 700,
+                        color: "primary.main",
+                        textTransform: "uppercase",
+                        letterSpacing: 0.8,
+                        mb: 1.5,
+                      }}
+                    >
+                      Modes of Transfer
+                    </Typography>
+                    {selectBank.some(
+                      (row: any) => (row?.modes_of_transfer || []).length
+                    ) ? (
+                      <Grid container spacing={1.5} alignItems="stretch">
+                        {selectBank.map((row: any) =>
+                          (row?.modes_of_transfer || []).map((item: any) => (
+                            <Grid item xs={12} sm={6} lg={4} key={item._id}>
+                              <ModeCustome modeData={item} />
+                            </Grid>
+                          ))
+                        )}
+                      </Grid>
+                    ) : (
+                      <Typography
+                        sx={{
+                          fontSize: 12.5,
+                          color: "text.secondary",
+                          py: 2,
+                        }}
+                      >
+                        No modes of transfer are configured on this bank.
+                      </Typography>
+                    )}
+                  </Box>
+                </Grid>
+              </Grid>
 
-  </Card>
-)}
+              {/* Edit + Delete buttons back at the bottom */}
+              <Stack direction="row" spacing={1} mt={2}>
+                <LoadingButton
+                  variant="contained"
+                  onClick={handleOpen1}
+                  loading={loadingEdit}
+                  sx={{ borderRadius: 1.5, fontSize: 12, boxShadow: "none" }}
+                >
+                  Edit Bank
+                </LoadingButton>
+                <LoadingButton
+                  variant="outlined"
+                  color="error"
+                  onClick={() => setConfirmDelete(true)}
+                  loading={loadingDelete}
+                  sx={{ borderRadius: 1.5, fontSize: 12 }}
+                >
+                  Delete Bank
+                </LoadingButton>
+              </Stack>
+            </Card>
+          )}
 
           {/* {adminBankList.length && ( */}
-            <>
-              {/* <Stack flexDirection={"row"} gap={1} my={1}>
+          <>
+            {/* <Stack flexDirection={"row"} gap={1} my={1}>
                 {adminBankList.map((item: any) => {
                   return (
                     !item.isDeleted && (
@@ -623,9 +711,9 @@ export default function AddBankAccount() {
                 })}
               </Stack> */}
 
-              {/* View Bank in Detail */}
+            {/* View Bank in Detail */}
 
-              {/* <Grid container>
+            {/* <Grid container>
                 <Grid lg={4} md={4} sm={10}>
                   <Card
                     sx={{ p: 2, bgcolor: "primary.lighter", marginRight: 2 }}
@@ -732,8 +820,8 @@ export default function AddBankAccount() {
                   Delete Bank
                 </LoadingButton>
               </Stack> */}
-            </>
-           {/* )} */}
+          </>
+          {/* )} */}
           {adminBankList.length == 0 && (
             <Stack justifyContent={"center"} alignItems={"center"}>
               <NoBankAccount />
@@ -796,15 +884,16 @@ export default function AddBankAccount() {
               <Button
                 variant="contained"
                 onClick={handleOpen2}
-               
                 sx={{
-                  mt: 2, mb: 2,
-          borderRadius: 2, fontSize: 12,
-          background: (theme) =>
-            `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
-          boxShadow: "none",
-          "&:hover": { boxShadow: "0 4px 12px rgba(4,120,87,0.35)" }
-        }}
+                  mt: 2,
+                  mb: 2,
+                  borderRadius: 2,
+                  fontSize: 12,
+                  background: (theme) =>
+                    `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
+                  boxShadow: "none",
+                  "&:hover": { boxShadow: "0 4px 12px rgba(4,120,87,0.35)" },
+                }}
               >
                 Add Modes
               </Button>
@@ -975,12 +1064,10 @@ const BankAddComponent = React.memo(
         setExpanded(newExpanded ? panel : false);
       };
 
-    const visibleTo = [
-      "Api User",
-      "Agent",
-      "Distributor",
-      "Master Distributor",
-    ];
+    /* Roles collapsed to { Admin, API_User }. A bank is visible to partners,
+       full stop - so there is nothing left to pick and the picker is gone.
+       The fee section below configures the one audience directly. */
+    const visibleTo = ["Api User"];
 
     const accountValidate = Yup.object().shape({
       bank: Yup.object({
@@ -1058,15 +1145,9 @@ const BankAddComponent = React.memo(
             transactionFeeType: modetype,
             transactionFeeOption: {
               for_API_user: "",
-              for_Agent: "",
-              for_Distributor: "",
-              for_M_Distributor: "",
             },
             transactionFeeValue: {
               for_API_user: "",
-              for_Agent: "",
-              for_Distributor: "",
-              for_M_Distributor: "",
             },
           })
         : watch("modes_of_transfer").map((item: any, index: any) => {
@@ -1088,16 +1169,13 @@ const BankAddComponent = React.memo(
             branch_name: data.branch,
             address: data.bankAddress,
           },
-          visibleTo_Agent: watch("visibleto").includes("Agent") ? true : false,
-          visibleTo_Distributor: watch("visibleto").includes("Distributor")
-            ? true
-            : false,
-          visibleTo_M_Dist: watch("visibleto").includes("Master Distributor")
-            ? true
-            : false,
-          visibleTo_API_User: watch("visibleto").includes("Api User")
-            ? true
-            : false,
+          /* The three dead roles are sent as false rather than omitted: the
+             schema defaults each of them to true, so leaving them out would
+             write a bank that is "visible to" roles that no longer exist. */
+          visibleTo_Agent: false,
+          visibleTo_Distributor: false,
+          visibleTo_M_Dist: false,
+          visibleTo_API_User: true,
           min_Deposit_Amount: data.minDepositeAmount,
           max_Deposit_Amount: data.maxDepositeAmount,
           modes_of_transfer: data.modes_of_transfer,
@@ -1106,15 +1184,13 @@ const BankAddComponent = React.memo(
         await Api("admin/fundManagement/add_bank", "POST", body, token).then(
           (Response: any) => {
             console.log("==========>> Se vender List", Response);
-            if (Response?.status == 200) {
-              if (Response.data.code == 200) {
-                handleClose();
-                reset(defaultValues);
-                updateBanksList(Response.data.data);
-                enqueueSnackbar(Response.data.message);
-              } else {
-                enqueueSnackbar(Response.data.message);
-              }
+            if (isOk(Response)) {
+              handleClose();
+              reset(defaultValues);
+              updateBanksList(Response.data.data);
+              enqueueSnackbar(Response.data.message);
+            } else {
+              notifyFailure(enqueueSnackbar, Response);
             }
           }
         );
@@ -1230,118 +1306,80 @@ const BankAddComponent = React.memo(
                   />
                 )}
               />
-              <RHFAutocomplete
-                name="visibletos"
-                multiple
-                freeSolo
-                onChange={(event, newValue: any) =>
-                  setValue("visibleto", newValue)
-                }
-                options={visibleTo}
-                getOptionLabel={(option: any) => option}
-                renderOption={(props, option) => (
-                  <Box
-                    component="li"
-                    sx={{ "& > img": { mr: 2, flexShrink: 0 } }}
-                    {...props}
-                  >
-                    {option}
-                  </Box>
-                )}
-                size="small"
-                renderInput={(params) => (
-                  <RHFTextField
-                    name="visibleto"
-                    label="Select Visible To"
-                    {...params}
-                  />
-                )}
-              />
             </Grid>
 
-            {Array.isArray(watch("visibleto")) &&
-              watch("visibleto").length > 0 &&
-              watch("visibleto").map((client: string, clientIndex: number) => (
+            {/* One fee panel per mode. This used to be one accordion per
+                audience, each repeating every mode inside it - with a single
+                audience left there is nothing to nest, so the mode is the
+                panel. */}
+            {fields.map((field: any, index: any) => {
+              const mode = watch("modes_of_transfer")[index];
+              return (
                 <Accordion
-                  key={clientIndex}
-                  expanded={expanded === `panel${clientIndex + 1}`}
-                  onChange={handleChange(`panel${clientIndex + 1}`)}
+                  key={field.id}
+                  expanded={expanded === `panel${index + 1}`}
+                  onChange={handleChange(`panel${index + 1}`)}
                 >
                   <AccordionSummary
-                    aria-controls={`panel${clientIndex}d-content`}
-                    id={`panel${clientIndex}d-header`}
+                    aria-controls={`panel${index}d-content`}
+                    id={`panel${index}d-header`}
                   >
-                    {client}
+                    <Stack
+                      direction="row"
+                      alignItems="center"
+                      spacing={1}
+                      sx={{ width: "100%" }}
+                    >
+                      <Typography variant="subtitle2">
+                        {mode?.modeName}
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        sx={{ color: "text.secondary" }}
+                      >
+                        ({mode?.transactionFeeType})
+                      </Typography>
+                    </Stack>
                   </AccordionSummary>
-                  {fields.map((field: any, index: any) => (
-                    <AccordionDetails key={field.id}>
-                      <Stack
-                        flexDirection={"row"}
-                        alignItems={"center"}
-                        justifyContent={"center"}
-                        mb={1}
-                      >
-                        <Typography variant="subtitle1">
-                          {watch("modes_of_transfer")[index].modeName}
+                  <AccordionDetails>
+                    <Typography
+                      variant="caption"
+                      sx={{ color: "text.secondary" }}
+                    >
+                      Applies to API Users.
+                    </Typography>
+                    <Box
+                      sx={{ display: "flex", gap: 3, mt: 1 }}
+                      justifyContent={"space-between"}
+                    >
+                      <Stack>
+                        <Typography variant="body2">
+                          {mode?.transactionFeeType} Type
                         </Typography>
-                        <Typography variant="subtitle2">
-                          (
-                          {watch("modes_of_transfer")[index].transactionFeeType}
-                          )
-                        </Typography>
+                        <RHFRadioGroup
+                          name={`modes_of_transfer.${index}.transactionFeeOption.for_API_user`}
+                          sx={{ display: "flex", flexDirection: "column" }}
+                          options={[
+                            { label: "Flat", value: "flat" },
+                            { label: "Percentage", value: "percentage" },
+                          ]}
+                        />
                       </Stack>
-                      <Box
-                        sx={{ display: "flex" }}
-                        justifyContent={"space-around"}
-                      >
-                        <Stack>
-                          <Typography variant="body1">
-                            {
-                              watch("modes_of_transfer")[index]
-                                .transactionFeeType
-                            }{" "}
-                            Type :
-                          </Typography>
-                          <RHFRadioGroup
-                            name={`modes_of_transfer.${index}.transactionFeeOption.${
-                              client === "Agent"
-                                ? "for_Agent"
-                                : client === "Distributor"
-                                ? "for_Distributor"
-                                : client === "Master Distributor"
-                                ? "for_M_Distributor"
-                                : "for_API_user"
-                            }`}
-                            sx={{ display: "flex", flexDirection: "column" }}
-                            options={[
-                              { label: "Flat", value: "flat" },
-                              { label: "Percentage", value: "percentage" },
-                            ]}
-                          />
-                        </Stack>
-                        <Stack>
-                          <Typography variant="body1">FeeValue</Typography>
-                          <RHFTextField
-                            name={`modes_of_transfer.${index}.transactionFeeValue.${
-                              client === "Agent"
-                                ? "for_Agent"
-                                : client === "Distributor"
-                                ? "for_Distributor"
-                                : client === "Master Distributor"
-                                ? "for_M_Distributor"
-                                : "for_API_user"
-                            }`}
-                            sx={{ mt: 1 }}
-                            placeholder="Value"
-                            label="Value"
-                            size="small"
-                          />
-                        </Stack>
-                      </Box>
-                    </AccordionDetails>
-                  ))}
+                      <Stack sx={{ flexGrow: 1, maxWidth: 200 }}>
+                        <Typography variant="body2">Fee Value</Typography>
+                        <RHFTextField
+                          name={`modes_of_transfer.${index}.transactionFeeValue.for_API_user`}
+                          sx={{ mt: 1 }}
+                          placeholder="Value"
+                          label="Value"
+                          size="small"
+                        />
+                      </Stack>
+                    </Box>
+                  </AccordionDetails>
                 </Accordion>
-              ))}
+              );
+            })}
 
             <LoadingButton
               fullWidth
@@ -1377,12 +1415,10 @@ const BankEditComponent = React.memo(
         setExpanded(newExpanded ? panel : false);
       };
 
-    const visibleTo = [
-      "Api User",
-      "Agent",
-      "Distributor",
-      "Master Distributor",
-    ];
+    /* Roles collapsed to { Admin, API_User }. A bank is visible to partners,
+       full stop - so there is nothing left to pick and the picker is gone.
+       The fee section below configures the one audience directly. */
+    const visibleTo = ["Api User"];
 
     const accountValidate = Yup.object().shape({
       bank: Yup.object({
@@ -1461,15 +1497,9 @@ const BankEditComponent = React.memo(
             transactionFeeType: modetype,
             transactionFeeOption: {
               for_API_user: "",
-              for_Agent: "",
-              for_Distributor: "",
-              for_M_Distributor: "",
             },
             transactionFeeValue: {
               for_API_user: "",
-              for_Agent: "",
-              for_Distributor: "",
-              for_M_Distributor: "",
             },
           })
         : watch("modes_of_transfer").map((item: any, index: any) => {
@@ -1490,16 +1520,13 @@ const BankEditComponent = React.memo(
             branch_name: data.branch,
             address: data.bankAddress,
           },
-          visibleTo_Agent: watch("visibleto").includes("Agent") ? true : false,
-          visibleTo_Distributor: watch("visibleto").includes("Distributor")
-            ? true
-            : false,
-          visibleTo_M_Dist: watch("visibleto").includes("Master Distributor")
-            ? true
-            : false,
-          visibleTo_API_User: watch("visibleto").includes("Api User")
-            ? true
-            : false,
+          /* The three dead roles are sent as false rather than omitted: the
+             schema defaults each of them to true, so leaving them out would
+             write a bank that is "visible to" roles that no longer exist. */
+          visibleTo_Agent: false,
+          visibleTo_Distributor: false,
+          visibleTo_M_Dist: false,
+          visibleTo_API_User: true,
           min_Deposit_Amount: data.minDepositeAmount,
           max_Deposit_Amount: data.maxDepositeAmount,
           modes_of_transfer: data.modes_of_transfer,

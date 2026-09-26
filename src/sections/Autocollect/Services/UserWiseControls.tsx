@@ -28,13 +28,16 @@ import * as Yup from "yup";
 import { CustomAvatar } from "src/components/custom-avatar";
 import { TableNoData } from "src/components/table";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 function UserWiseControls() {
   const { Api } = useAuthContext();
   const { enqueueSnackbar } = useSnackbar();
   const [users, setUsers] = React.useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [userRoleWise, setUserRoleWise] = React.useState("agent");
+  // Item 3d: "agent" was the default tab; that role is retired, so the first
+  // remaining tab is the default.
+  const [userRoleWise, setUserRoleWise] = React.useState("API_User");
   const [identifier, setIdentifier] = React.useState<any>();
   const [services, setServices] = React.useState([]);
   const [pageSize, setPageSize] = useState(25);
@@ -96,13 +99,11 @@ function UserWiseControls() {
   const GetAutocollectList = () => {
     let token = localStorage.getItem("token");
     Api(`admin/autoCollect/fetch`, "GET", "", token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setIdentifier(Response.data.data[0]);
-          setServices(Response.data.data);
-        } else {
-          enqueueSnackbar(Response.data.responseMessage);
-        }
+      if (isOk(Response)) {
+        setIdentifier(Response.data.data[0]);
+        setServices(Response.data.data);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -144,16 +145,14 @@ function UserWiseControls() {
       role: role,
     };
     Api(`admin/get_ApprovedList`, "POST", body, token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setTxnCount(Response.data.count);
-          GetAutocollectList();
-          setUserList(Response.data.data);
-        }
-        setIsLoading(false);
+      if (isOk(Response)) {
+        setTxnCount(Response.data.count);
+        GetAutocollectList();
+        setUserList(Response.data.data);
       } else {
-        setIsLoading(false);
+        notifyFailure(enqueueSnackbar, Response);
       }
+      setIsLoading(false);
     });
   };
 
@@ -168,11 +167,10 @@ function UserWiseControls() {
     {
       val.length
         ? Api(`admin/search_user`, "POST", body, "").then((Response: any) => {
-            if (Response?.status == 200) {
-              if (Response.data.code == 200) {
-                setUsers(Response.data.data);
-              } else {
-              }
+            if (isOk(Response)) {
+              setUsers(Response.data.data);
+            } else {
+              notifyFailure(enqueueSnackbar, Response);
             }
           })
         : setUsers([]);
@@ -197,7 +195,10 @@ function UserWiseControls() {
       body,
       token
     ).then((Response: any) => {
-      if (Response?.status == 200) {
+      // Item 1b: the autocollect switch reported success on the transport
+      // status alone, so a refused toggle still flipped the switch on screen and
+      // toasted a save that never happened.
+      if (isOk(Response)) {
         setUserList(
           userList.filter((user: any, index: number) => {
             if (user._id === e._id) {
@@ -232,7 +233,7 @@ function UserWiseControls() {
         );
         enqueueSnackbar(Response?.data?.message);
       } else {
-        enqueueSnackbar("Failed", { variant: "error" });
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -319,17 +320,7 @@ function UserWiseControls() {
                 },
               }}
             >
-              <Tab value="agent" label="Agent" sx={{ fontWeight: "bold" }} />
-              <Tab
-                value="distributor"
-                label="Distributor"
-                sx={{ fontWeight: "bold" }}
-              />
-              <Tab
-                value="m_distributor"
-                label="Mater Distributor"
-                sx={{ fontWeight: "bold" }}
-              />
+              {/* Item 3d: roles are only Admin and API_User now. */}
               <Tab
                 value="API_User"
                 label="API User"

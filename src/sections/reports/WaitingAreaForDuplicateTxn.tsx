@@ -28,6 +28,7 @@ import { Upload } from "src/components/upload";
 
 import FormProvider, { RHFTextField } from "../../components/hook-form";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 // ----------------------------------------------------------------------
 
@@ -88,12 +89,10 @@ export default function WaitingAreaForDuplicateTxn() {
     };
     Api("admin/setTxnTimestampForDistributor", "POST", body, token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            enqueueSnackbar(Response.data.message);
-          } else {
-            enqueueSnackbar(Response.data.message);
-          }
+        if (isOk(Response)) {
+          enqueueSnackbar(Response.data.message);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -106,12 +105,10 @@ export default function WaitingAreaForDuplicateTxn() {
     };
     Api("admin/setTxnTimestampForPartner", "POST", body, token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            enqueueSnackbar(Response.data.message);
-          } else {
-            enqueueSnackbar(Response.data.message);
-          }
+        if (isOk(Response)) {
+          enqueueSnackbar(Response.data.message);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -120,24 +117,22 @@ export default function WaitingAreaForDuplicateTxn() {
   const getAdminDetail = () => {
     let token = localStorage.getItem("token");
     Api(`admin/adminDetails`, "GET", "", token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          // enqueueSnackbar("Limit fetch Succesfully");
-          setMin(
-            Math.round(Response.data.data.distributorTransactionTimestamp / 60)
-          );
-          setSec(
-            Math.round(Response.data.data.distributorTransactionTimestamp % 60)
-          );
-          setPmin(
-            Math.round(Response.data.data.partnerTransactionTimestamp / 60)
-          );
-          setPsec(
-            Math.round(Response.data.data.partnerTransactionTimestamp % 60)
-          );
-        } else {
-          // enqueueSnackbar(Response.data.message);
-        }
+      if (isOk(Response)) {
+        // enqueueSnackbar("Limit fetch Succesfully");
+        setMin(
+          Math.round(Response.data.data.distributorTransactionTimestamp / 60)
+        );
+        setSec(
+          Math.round(Response.data.data.distributorTransactionTimestamp % 60)
+        );
+        setPmin(
+          Math.round(Response.data.data.partnerTransactionTimestamp / 60)
+        );
+        setPsec(
+          Math.round(Response.data.data.partnerTransactionTimestamp % 60)
+        );
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };

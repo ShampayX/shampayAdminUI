@@ -30,6 +30,7 @@ import ProductTable from "./ProductTable";
 import { Upload } from "src/components/upload";
 import EditBBPSproducts from "./EditBBPSproducts";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 // import { Label } from '@mui/icons-material';
 
 // ----------------------------------------------------------------------
@@ -210,12 +211,11 @@ export default function ViewProduct() {
   const getCategory = () => {
     const token = localStorage.getItem("token");
     Api(`category/get_CategoryList`, "GET", "", token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setCategory(Response.data.data);
-          setCategoryData(Response.data.data[0]);
-        } else {
-        }
+      if (isOk(Response)) {
+        setCategory(Response.data.data);
+        setCategoryData(Response.data.data[0]);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -224,11 +224,10 @@ export default function ViewProduct() {
     categoryData?.category_name?.toLowerCase() !== "bill payment" &&
       Api(`product/get_ProductList/${val}`, "GET", "", "").then(
         (Response: any) => {
-          if (Response?.status == 200) {
-            if (Response.data.code == 200) {
-              setPdata(Response.data.data);
-            } else {
-            }
+          if (isOk(Response)) {
+            setPdata(Response.data.data);
+          } else {
+            notifyFailure(enqueueSnackbar, Response);
           }
         }
       );

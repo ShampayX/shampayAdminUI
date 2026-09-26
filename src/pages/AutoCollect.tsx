@@ -37,6 +37,7 @@ import { useSnackbar } from "notistack";
 import { LoadingButton } from "@mui/lab";
 import { useLocation, useNavigate } from "react-router";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 const Accordion = styled((props: AccordionProps) => (
   <MuiAccordion disableGutters elevation={0} {...props} />
@@ -137,8 +138,7 @@ export default function AutoCollect() {
     };
 
   const users = [
-    { id: 0, label: "Agent", value: "agent" },
-    { id: 1, label: "Distributor", value: "distributor" },
+    // Item 3d: roles are only Admin and API_User now.
     { id: 2, label: "Master Distributor", value: "masterDistributor" },
     { id: 3, label: "Partner", value: "partner" },
   ];
@@ -430,11 +430,10 @@ export default function AutoCollect() {
     let token = localStorage.getItem("token");
     Api(`admin/autoCollect/fetch/vendors`, "GET", "", token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setVendors(Response?.data?.data);
-          } else {
-          }
+        if (isOk(Response)) {
+          setVendors(Response?.data?.data);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -452,13 +451,11 @@ export default function AutoCollect() {
 
       Api(`admin/autoCollect/save`, "POST", body, token).then(
         (Response: any) => {
-          if (Response?.status == 200) {
-            if (Response.data.code == 200) {
-              reset(defaultValues);
-              enqueueSnackbar(Response.data.message);
-            } else {
-              enqueueSnackbar(Response.data.message);
-            }
+          if (isOk(Response)) {
+            reset(defaultValues);
+            enqueueSnackbar(Response.data.message);
+          } else {
+            notifyFailure(enqueueSnackbar, Response);
           }
         }
       );

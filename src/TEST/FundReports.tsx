@@ -56,6 +56,7 @@ import { CustomAvatar } from "src/components/custom-avatar";
 import { fDate, fDateFormatForApi, fDateTime } from "src/utils/formatTime";
 import { useAuthContext } from "src/auth/useAuthContext";
 import { token } from "stylis";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 type FormValuesProps = {
   updatedstatus: string;
@@ -246,13 +247,11 @@ const FundRequest = React.memo(() => {
 
     Api(`admin/fundManagement/get_p_fnd_requests`, "POST", body, token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setPendata(Response.data.data);
-            setPenlen(Response?.data?.count);
-          } else {
-            enqueueSnackbar(Response.data.err);
-          }
+        if (isOk(Response)) {
+          setPendata(Response.data.data);
+          setPenlen(Response?.data?.count);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -273,13 +272,11 @@ const FundRequest = React.memo(() => {
       body,
       token
     ).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setAppdata(Response.data.data);
-          setApplen(Response?.data?.count);
-        } else {
-          enqueueSnackbar(Response.data.responseMessage);
-        }
+      if (isOk(Response)) {
+        setAppdata(Response.data.data);
+        setApplen(Response?.data?.count);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -321,17 +318,15 @@ const FundRequest = React.memo(() => {
       body,
       token
     ).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setAppdata(Response.data.data);
-          setApplen(Response?.data?.count);
+      if (isOk(Response)) {
+        setAppdata(Response.data.data);
+        setApplen(Response?.data?.count);
 
-          if (Response.data.code == 200 && Response?.data?.count == 0) {
-            enqueueSnackbar("No Data Found");
-          }
-        } else {
-          enqueueSnackbar(Response.data.responseMessage);
+        if (Response.data.code == 200 && Response?.data?.count == 0) {
+          enqueueSnackbar("No Data Found");
         }
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -368,17 +363,15 @@ const FundRequest = React.memo(() => {
 
     Api(`admin/fundManagement/get_p_fnd_requests`, "POST", body, token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setPendata(Response.data.data);
-            setPenlen(Response?.data?.count);
+        if (isOk(Response)) {
+          setPendata(Response.data.data);
+          setPenlen(Response?.data?.count);
 
-            if (Response.data.code == 200 && Response?.data?.count == 0) {
-              enqueueSnackbar("No Data Found");
-            }
-          } else {
-            enqueueSnackbar(Response.data.responseMessage);
+          if (Response.data.code == 200 && Response?.data?.count == 0) {
+            enqueueSnackbar("No Data Found");
           }
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -420,17 +413,15 @@ const FundRequest = React.memo(() => {
       body,
       token
     ).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setRejdata(Response.data.data);
-          setRejlen(Response?.data?.count);
+      if (isOk(Response)) {
+        setRejdata(Response.data.data);
+        setRejlen(Response?.data?.count);
 
-          if (Response.data.code == 200 && Response?.data?.count == 0) {
-            enqueueSnackbar("No Data Found");
-          }
-        } else {
-          enqueueSnackbar(Response.data.responseMessage);
+        if (Response.data.code == 200 && Response?.data?.count == 0) {
+          enqueueSnackbar("No Data Found");
         }
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -449,14 +440,12 @@ const FundRequest = React.memo(() => {
       body,
       token
     ).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setRejdata(Response.data.data);
-          setRejlen(Response?.data?.count);
-          // setWalletCount(Response?.data?.data?.count);
-        } else {
-          enqueueSnackbar(Response.data.responseMessage);
-        }
+      if (isOk(Response)) {
+        setRejdata(Response.data.data);
+        setRejlen(Response?.data?.count);
+        // setWalletCount(Response?.data?.data?.count);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -486,11 +475,10 @@ const FundRequest = React.memo(() => {
     };
     {
       Api(`admin/search_user`, "POST", body, token).then((Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setUserList(Response.data.data);
-          } else {
-          }
+        if (isOk(Response)) {
+          setUserList(Response.data.data);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       });
     }
@@ -876,7 +864,7 @@ const FundRequest = React.memo(() => {
                 { id: "modeName", label: "Mode of Payment" },
                 { id: "	bank_name", label: "Bank" },
                 { id: "	Branch", label: "Branch" },
-                { id: "referralCode", label: "	UTR" },
+                { id: "utr", label: "	UTR" },
                 { id: "	Charge", label: "Charge/Commission" },
                 // { id: '	Commission', label: 'Commission' },
                 { id: "	transactionSlip ", label: "	Deposit Slip " },
@@ -919,7 +907,7 @@ const FundRequest = React.memo(() => {
                 { id: "modeName", label: "Mode of Payment" },
                 { id: "	bank_name", label: "Bank" },
                 { id: "	Branch", label: "Branch" },
-                { id: "referralCode", label: "UTR" },
+                { id: "utr", label: "UTR" },
                 { id: "	Remark", label: "Remark" },
                 { id: "	transactionSlip ", label: "	Deposit Slip " },
               ]}
@@ -959,7 +947,7 @@ const FundRequest = React.memo(() => {
                 { id: "modeName", label: "Mode of Payment" },
                 { id: "	bank_name", label: "Bank" },
                 { id: "	Branch", label: "Branch" },
-                { id: "referralCode", label: "	UTR" },
+                { id: "utr", label: "	UTR" },
                 { id: "	transactionSlip ", label: "	Deposit Slip " },
               ]}
             />
@@ -1103,11 +1091,10 @@ const FundFlow = React.memo(() => {
     };
     val.length > 2 &&
       Api(`admin/search_user`, "POST", body, token).then((Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setUserList(Response.data.data);
-          } else {
-          }
+        if (isOk(Response)) {
+          setUserList(Response.data.data);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       });
   };
@@ -1133,14 +1120,12 @@ const FundFlow = React.memo(() => {
     };
     Api(`adminTransaction/fund_flow_transaction`, "POST", body, token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setSdata(Response.data.data.data);
-            setTxnCount(Response.data.data.totalNumberOfRecords);
-            setCurrentTab("all");
-          } else {
-            enqueueSnackbar(Response.data.message);
-          }
+        if (isOk(Response)) {
+          setSdata(Response.data.data.data);
+          setTxnCount(Response.data.data.totalNumberOfRecords);
+          setCurrentTab("all");
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );

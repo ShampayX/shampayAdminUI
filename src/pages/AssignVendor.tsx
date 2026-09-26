@@ -14,6 +14,7 @@ import { useSnackbar } from "../components/snackbar";
 import FormProvider, { RHFSelect } from "../components/hook-form";
 import { Upload } from "../components/upload";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 // ----------------------------------------------------------------------
 
@@ -107,15 +108,12 @@ export default function AssignVendor({ isEdit = false, currentUser }: Props) {
       };
       Api(`product/map_productWithVendor`, "POST", body, "").then(
         (Response: any) => {
-          if (Response?.status == 200) {
-            if (Response.data.code == 200) {
-              enqueueSnackbar("Vendor Assigned Successfully !");
-              reset(defaultValues);
-              setNvdata([]);
-            } else {
-              enqueueSnackbar(Response.data.message);
-              // reset(defaultValues);
-            }
+          if (isOk(Response)) {
+            enqueueSnackbar("Vendor Assigned Successfully !");
+            reset(defaultValues);
+            setNvdata([]);
+          } else {
+            notifyFailure(enqueueSnackbar, Response);
           }
         }
       );
@@ -126,24 +124,23 @@ export default function AssignVendor({ isEdit = false, currentUser }: Props) {
 
   const getvendorlist = () => {
     Api(`vendor/get_VendorList/`, "GET", "", "").then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setVdata(Response.data.data);
+      if (isOk(Response)) {
+        setVdata(Response.data.data);
 
-          let tempArr: any = [];
-          {
-            Response.data.data.map((item: any, index: any) => {
-              let obj = {
-                vendorId: item._id,
-                vendorName: item.vendorName,
-                services: "No",
-              };
-              tempArr.push(obj);
-            });
-          }
-          setNvdata(tempArr);
-        } else {
+        let tempArr: any = [];
+        {
+          Response.data.data.map((item: any, index: any) => {
+            let obj = {
+              vendorId: item._id,
+              vendorName: item.vendorName,
+              services: "No",
+            };
+            tempArr.push(obj);
+          });
         }
+        setNvdata(tempArr);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -153,12 +150,10 @@ export default function AssignVendor({ isEdit = false, currentUser }: Props) {
     try {
       await Api(`category/get_CategoryList`, "GET", "", token).then(
         (Response: any) => {
-          if (Response?.status == 200) {
-            if (Response.data.code == 200) {
-              setCdata(Response.data.data);
-            } else {
-              let msg = Response.data.message;
-            }
+          if (isOk(Response)) {
+            setCdata(Response.data.data);
+          } else {
+            notifyFailure(enqueueSnackbar, Response);
           }
         }
       );
@@ -169,11 +164,10 @@ export default function AssignVendor({ isEdit = false, currentUser }: Props) {
   const getProductlist = (val: string) => {
     Api(`product/get_ProductList/${val}`, "GET", "", "").then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setPdata(Response.data.data);
-          } else {
-          }
+        if (isOk(Response)) {
+          setPdata(Response.data.data);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -187,12 +181,10 @@ export default function AssignVendor({ isEdit = false, currentUser }: Props) {
       };
       await Api(`category/get_SubCategoryList`, "POST", body, "").then(
         (Response: any) => {
-          if (Response?.status == 200) {
-            if (Response.data.code == 200) {
-              setSubCdata(Response.data.data.sub_category);
-            } else {
-              let msg = Response.data.message;
-            }
+          if (isOk(Response)) {
+            setSubCdata(Response.data.data.sub_category);
+          } else {
+            notifyFailure(enqueueSnackbar, Response);
           }
         }
       );
@@ -201,7 +193,10 @@ export default function AssignVendor({ isEdit = false, currentUser }: Props) {
     }
   };
   const csvDownload: any = () => {
-    window.open("https://api.shampay.pro/product/download_Product_Csv", "_blank");
+    window.open(
+      "https://api.shampay.pro/product/download_Product_Csv",
+      "_blank"
+    );
   };
 
   const docupload = () => {

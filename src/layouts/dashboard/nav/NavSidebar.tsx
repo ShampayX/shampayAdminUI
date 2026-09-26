@@ -183,8 +183,8 @@ const NAV_CHILD_LABELS: Record<string, string> = {
   "Map Scheme": "Scheme Assignment",
   "Manage BBPS Scheme": "Bill Payment Plans",
   "Map BBPS Scheme": "Bill Payment Mapping",
-  "Manage Loan Scheme": "Loan Plan Catalog",
-  "Map Loan Scheme": "Loan Plan Mapping",
+  /* "Manage Loan Scheme" / "Map Loan Scheme" are no longer in the sidebar -
+     see the removal note in nav/config.tsx. */
 
   /* Providers - the four consolidated screens are already named the way they
      should read, so there is nothing to relabel here. See the block comment on

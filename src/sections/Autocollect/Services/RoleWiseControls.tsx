@@ -22,6 +22,7 @@ import { TableHeadCustom, TableNoData } from "src/components/table";
 import { useSnackbar } from "notistack";
 import ApiDataLoading from "src/components/CustomFunction/ApiDataLoading";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyOk, notifyFailure } from "src/utils/apiResult";
 
 function RoleWiseControls() {
   const { Api } = useAuthContext();
@@ -36,13 +37,11 @@ function RoleWiseControls() {
   const GetAutocollectList = () => {
     let token = localStorage.getItem("token");
     Api(`admin/autoCollect/fetch`, "GET", "", token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setIdentifier(Response.data.data[0]);
-          setServices(Response.data.data);
-        } else {
-          enqueueSnackbar(Response.data.responseMessage);
-        }
+      if (isOk(Response)) {
+        setIdentifier(Response.data.data[0]);
+        setServices(Response.data.data);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -76,8 +75,11 @@ function RoleWiseControls() {
       body,
       token
     ).then((Response: any) => {
-      if (Response?.status == 200) {
-        enqueueSnackbar(Response?.data?.message);
+      // Item 1b: the autocollect switch reported success on the transport
+      // status alone, so a refused toggle still flipped the switch on screen and
+      // toasted a save that never happened.
+      if (isOk(Response)) {
+        notifyOk(enqueueSnackbar, Response);
 
         const updatedServices = services.map((item: any) => {
           const newItem = { ...item };
@@ -123,7 +125,7 @@ function RoleWiseControls() {
 
         setServices(updatedServices);
       } else {
-        enqueueSnackbar("Failed", { variant: "error" });
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
