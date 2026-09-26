@@ -12,6 +12,10 @@ import { LoadingButton } from "@mui/lab";
 import ApiDataLoading from "src/components/CustomFunction/ApiDataLoading";
 import { useAuthContext } from "src/auth/useAuthContext";
 import { useParams } from "react-router-dom";
+import { isOk, notifyFailure } from "src/utils/apiResult";
+import VendorWarnings, {
+  vendorWarningsOf,
+} from "src/components/VendorWarnings";
 
 // ----------------------------------------------------------------------
 
@@ -41,6 +45,7 @@ export default function DMT2VendorSwitch({ userId }: Props) {
   const [isLoading, setIsLoading] = useState(false);
   const [productId, setProductId] = useState("");
   const [vendorList, setVendorList] = useState([]);
+  const [vendorWarnings, setVendorWarnings] = useState<string[]>([]);
   const [isEdit, setIsEdit] = useState(false);
 
   // Form Controller
@@ -92,19 +97,19 @@ export default function DMT2VendorSwitch({ userId }: Props) {
               "",
               token
             ).then((Response: any) => {
-              if (Response?.status == 200) {
-                if (Response.data.code == 200) {
-                  setValue(
-                    "neoNetworkVendor",
-                    Response.data.data.neoNetworkVendor
-                  );
-                  setValue("apiUserVendor", Response.data.data.apiUserVendor);
-                  setValue(
-                    "directAgentVendor",
-                    Response.data.data.directAgentVendor
-                  );
-                  MTVendors();
-                }
+              if (isOk(Response)) {
+                setValue(
+                  "neoNetworkVendor",
+                  Response.data.data.neoNetworkVendor
+                );
+                setValue("apiUserVendor", Response.data.data.apiUserVendor);
+                setValue(
+                  "directAgentVendor",
+                  Response.data.data.directAgentVendor
+                );
+                MTVendors();
+              } else {
+                notifyFailure(enqueueSnackbar, Response);
               }
             });
           }
@@ -119,14 +124,15 @@ export default function DMT2VendorSwitch({ userId }: Props) {
     let token = localStorage.getItem("token");
     await Api(`product/dmt2_vendor_list`, "GET", "", token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setVendorList(Response.data.data);
-          }
-          setIsLoading(false);
+        if (isOk(Response)) {
+          setVendorList(Response.data.data);
+          // Item 3b: an empty dropdown used to be indistinguishable from a
+          // broken one. `warnings` sits beside `data`, not inside it.
+          setVendorWarnings(vendorWarningsOf(Response));
         } else {
-          setIsLoading(false);
+          notifyFailure(enqueueSnackbar, Response);
         }
+        setIsLoading(false);
       }
     );
   };
@@ -145,12 +151,12 @@ export default function DMT2VendorSwitch({ userId }: Props) {
       };
       await Api("product/setUserVendorSwitch", "POST", body, token).then(
         (Response: any) => {
-          if (Response?.status == 200) {
-            if (Response.data.code == 200) {
-              enqueueSnackbar(Response.data.message);
-              setIsEdit(!isEdit);
-              getProductlist(CategoryContaxt?._id);
-            }
+          if (isOk(Response)) {
+            enqueueSnackbar(Response.data.message);
+            setIsEdit(!isEdit);
+            getProductlist(CategoryContaxt?._id);
+          } else {
+            notifyFailure(enqueueSnackbar, Response);
           }
         }
       );
@@ -159,6 +165,7 @@ export default function DMT2VendorSwitch({ userId }: Props) {
 
   return (
     <>
+      <VendorWarnings warnings={vendorWarnings} />
       <Helmet>
         <title>Vendor Switch | Shampay Admin</title>
       </Helmet>

@@ -17,6 +17,7 @@ import { TableHeadCustom } from "../../../components/table";
 import { useSnackbar } from "../../../components/snackbar";
 import { useState, useEffect } from "react";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 // ----------------------------------------------------------------------
 
 type RowProps = {
@@ -79,13 +80,11 @@ export default function EditIndoNepalTransfer({
       let token = localStorage.getItem("token");
       Api(`scheme/edit_subscheme/`, "POST", body, token).then(
         (Response: any) => {
-          if (Response?.status == 200) {
-            if (Response.data.code == 200) {
-              setEdit(false);
-              enqueueSnackbar("Scheme update Successfull !");
-            } else {
-              enqueueSnackbar(Response.data.message);
-            }
+          if (isOk(Response)) {
+            setEdit(false);
+            enqueueSnackbar("Scheme update Successfull !");
+          } else {
+            notifyFailure(enqueueSnackbar, Response);
           }
         }
       );

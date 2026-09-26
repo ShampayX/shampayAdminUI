@@ -13,6 +13,8 @@ import FormProvider, {
   RHFSelect,
 } from "src/components/hook-form";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { useSnackbar } from "src/components/snackbar";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 // import { Label } from '@mui/icons-material';
 
@@ -25,6 +27,7 @@ type FormValuesProps = {
 const label = { inputProps: { "aria-label": "Checkbox demo" } };
 
 export default function AccountLimit() {
+  const { enqueueSnackbar } = useSnackbar();
   const { Api } = useAuthContext();
   const [MDlimit, setMDlimit] = useState("");
   const [Dlimit, setDlimit] = useState("");
@@ -62,10 +65,9 @@ export default function AccountLimit() {
     };
 
     Api(`admin/setLimit`, "POST", body, token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-        } else {
-        }
+      if (isOk(Response)) {
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -76,21 +78,20 @@ export default function AccountLimit() {
       email: "admin@asmforex.in",
     };
     Api(`admin/getLimit`, "POST", body, token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          Response.data.data[0].setting.map((item: any) => {
-            if (item.role == "master") {
-              setMDlimit(item.limit);
-            }
-            if (item.role == "distributor") {
-              setDlimit(item.limit);
-            }
-            if (item.role == "agent") {
-              setAlimit(item.limit);
-            }
-          });
-        } else {
-        }
+      if (isOk(Response)) {
+        Response.data.data[0].setting.map((item: any) => {
+          if (item.role == "master") {
+            setMDlimit(item.limit);
+          }
+          if (item.role == "distributor") {
+            setDlimit(item.limit);
+          }
+          if (item.role == "agent") {
+            setAlimit(item.limit);
+          }
+        });
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };

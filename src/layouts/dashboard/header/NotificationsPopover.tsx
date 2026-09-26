@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Box,
   Stack,
@@ -15,7 +15,6 @@ import {
   Tooltip,
   Badge,
 } from "@mui/material";
-import { io, Socket } from "socket.io-client";
 import Iconify from "../../../components/iconify";
 import Scrollbar from "../../../components/scrollbar";
 import MenuPopover from "../../../components/menu-popover";
@@ -24,6 +23,27 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faBell } from "@fortawesome/free-solid-svg-icons";
 import { useNavigate } from "react-router";
 import { PATH_DASHBOARD } from "src/routes/paths";
+import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk } from "src/utils/apiResult";
+
+// ----------------------------------------------------------------------
+// There is no server push any more.
+//
+// The backend removed its Socket.IO server (brief A-001): the two `io.emit`
+// calls that carried `fund_request_received` are gone and none is planned. This
+// component used to hold an `io()` connection to a hardcoded
+// `https://dev.api.shampay.pro`, which now fails and retries forever - an
+// endless reconnect loop in every operator's console.
+//
+// The replacement the brief asks for is a poll. `get_p_fnd_requests` is the
+// same list the Fund Requests screen shows, so a new pending request surfaces
+// here within one interval. Anything whose `fund_request_Id` we have not seen
+// before is new; the first poll only seeds the baseline so a fresh login does
+// not toast the entire backlog.
+// ----------------------------------------------------------------------
+
+const POLL_INTERVAL_MS = 60_000;
+const POLL_PAGE_SIZE = 20;
 
 type NotificationItem = {
   id: string;
@@ -36,6 +56,8 @@ type NotificationItem = {
 
 export default function NotificationsPopover() {
   const navigate = useNavigate();
+  const { Api } = useAuthContext();
+
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [isMuted, setIsMuted] = useState(
     () => localStorage.getItem("notification-muted") === "true"
@@ -45,118 +67,105 @@ export default function NotificationsPopover() {
   const [openPopover, setOpenPopover] = useState<HTMLElement | null>(null);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const soundRef = useRef<HTMLAudioElement | null>(null);
-  const socketRef = useRef<Socket | null>(null);
+
+  /** Request ids already surfaced. `null` until the first poll seeds it. */
+  const seenIdsRef = useRef<Set<string> | null>(null);
 
   useEffect(() => {
     isMutedRef.current = isMuted;
     localStorage.setItem("notification-muted", String(isMuted));
   }, [isMuted]);
 
-  let API_URL = "";
-
-  if (
-    process.env.NODE_ENV === "development" ||
-    process.env.NODE_ENV === "test"
-  ) {
-    API_URL = "https://dev.api.shampay.pro";
-  } else {
-    API_URL = "https://api.shampay.pro";
-  }
-
-  const token =
-    typeof window !== "undefined" ? localStorage.getItem("token") : null;
-
   useEffect(() => {
     soundRef.current = new Audio("/money_sound.mp3");
+  }, []);
 
-    // connect socket
-
-    const socket = io(API_URL, {
-      path: "/socket.io", // match your server
-      transports: ["polling", "websocket"],
-      auth: { token: localStorage.getItem("token") }, // optional
-    });
-
-    socket.on("connect", () => console.log("socket connected"));
-    socket.on("fund_request_received", (payload) => {
-      // payload contains: fund_request_Id, amount, status, company_name, createdAt, creator.role, creator.company_name
-      //
-      // show notification UI / sound / desktop notification here
-    });
-    socket.on("connect_error", (err) => console.error("connect_error", err));
-
-    socketRef.current = socket;
-
-    socket.on("connect", () => {
-      console.log("Socket connected");
-    });
-
-    // primary event name you said: 'fund_request_received'
-    socket.on("fund_request_received", handleIncomingNotification);
-
-    // fallback / alternate event name
-    socket.on("NEW_FUND_REQUEST", handleIncomingNotification);
-
-    socket.on("disconnect", (reason) => {});
-
-    socket.on("connect_error", (err: any) => {
-      console.warn("Socket connect_error", err?.message || err);
-    });
-
-    return () => {
-      socket.off("fund_request_received", handleIncomingNotification);
-      socket.off("NEW_FUND_REQUEST", handleIncomingNotification);
-      socket.disconnect();
-      socketRef.current = null;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // run once
-
-  // central handler
-  function handleIncomingNotification(payload: any) {
-    // payload shape varies; normalize minimally
-    const item: NotificationItem = {
-      id: payload?.id || payload?._id || String(Date.now()),
-      title:
-        payload?.title ||
-        payload?.fund_request_Id ||
-        `Fund request ₹${payload?.amount || ""}`,
-      amount: payload?.amount,
-      reason: payload?.reason,
-      createdAt: payload?.createdAt || new Date().toISOString(),
-      raw: payload,
-    };
-
-    setNotifications((prev) => [item, ...prev]);
+  const announce = useCallback((item: NotificationItem) => {
+    setNotifications((prev) => [item, ...prev].slice(0, 50));
     setUnreadCount((c) => c + 1);
-
-    // if (!isMuted && soundRef.current) {
-    //   soundRef.current.play().catch(() => {
-    //     /* ignore play errors (autoplay restrictions) */
-    //   });
-    // }
 
     if (!isMutedRef.current && soundRef.current) {
       soundRef.current.play().catch(() => {});
     }
 
-    // desktop notification
     if (typeof window !== "undefined" && "Notification" in window) {
-      if (Notification.permission === "granted") {
+      const show = () =>
         new Notification("New fund request", {
-          body: `${item.title} — ₹${item.amount ?? ""}`,
+          body: `${item.title} - ₹${item.amount ?? ""}`,
         });
+
+      if (Notification.permission === "granted") {
+        show();
       } else if (Notification.permission === "default") {
         Notification.requestPermission().then((perm) => {
-          if (perm === "granted") {
-            new Notification("New fund request", {
-              body: `${item.title} — ₹${item.amount ?? ""}`,
-            });
-          }
+          if (perm === "granted") show();
         });
       }
     }
-  }
+  }, []);
+
+  const toItem = (row: any): NotificationItem => ({
+    id: String(row?.fund_request_Id || row?._id || Date.now()),
+    title: row?.fund_request_Id
+      ? `Fund request ${row.fund_request_Id}`
+      : `Fund request ₹${row?.amount ?? ""}`,
+    amount: row?.amount,
+    reason: row?.remarks,
+    createdAt: row?.createdAt || new Date().toISOString(),
+    raw: row,
+  });
+
+  const poll = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    const response = await Api(
+      `admin/fundManagement/get_p_fnd_requests`,
+      "POST",
+      {
+        pageInitData: { pageSize: POLL_PAGE_SIZE, currentPage: 1 },
+      },
+      token
+    );
+
+    // A failed poll is not worth a toast - it retries on the next tick.
+    if (!isOk(response)) return;
+
+    const rows: any[] = Array.isArray(response?.data?.data)
+      ? response.data.data
+      : [];
+
+    // First poll only records what already exists.
+    if (seenIdsRef.current === null) {
+      seenIdsRef.current = new Set(rows.map((row) => toItem(row).id));
+      return;
+    }
+
+    const seen = seenIdsRef.current;
+    // Oldest first, so the newest request ends up at the top of the list.
+    [...rows].reverse().forEach((row) => {
+      const item = toItem(row);
+      if (seen.has(item.id)) return;
+      seen.add(item.id);
+      announce(item);
+    });
+  }, [Api, announce]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const tick = () => {
+      if (!cancelled) poll();
+    };
+
+    tick();
+    const timer = setInterval(tick, POLL_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [poll]);
 
   const handleOpenPopover = (event: React.MouseEvent<HTMLElement>) => {
     setOpenPopover(event.currentTarget);
@@ -177,14 +186,6 @@ export default function NotificationsPopover() {
     setOpenPopover(null);
     setUnreadCount(0);
   };
-
-  // const toggleMute = () => {
-  //   setIsMuted((prev) => {
-  //     const next = !prev;
-  //     localStorage.setItem("notification-muted", String(next));
-  //     return next;
-  //   });
-  // };
 
   const toggleMute = () => {
     setIsMuted((prev) => !prev);

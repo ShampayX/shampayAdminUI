@@ -10,6 +10,8 @@ import { KitTabs, EmptyState, LoadingState } from "src/components/page-kit";
 //
 import KYCVender from "./KYCVender";
 import Panneydrop from "./Panneydrop";
+import { isOk, notifyFailure } from "src/utils/apiResult";
+import { useSnackbar } from "src/components/snackbar";
 
 // ----------------------------------------------------------------------
 // Vendor Switch > Others.
@@ -21,6 +23,7 @@ import Panneydrop from "./Panneydrop";
 // ----------------------------------------------------------------------
 
 export default function OtherVenderSwitch() {
+  const { enqueueSnackbar } = useSnackbar();
   const { Api } = useAuthContext();
 
   const [categoryList, setCategoryList] = useState([]);
@@ -36,11 +39,11 @@ export default function OtherVenderSwitch() {
     setIsLoading(true);
     Api(`category/getOtherCategoryList`, "GET", "", "").then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setCategoryList(Response.data.data);
-            setSuperCurrentTab(Response.data.data[0]?.category_name);
-          }
+        if (isOk(Response)) {
+          setCategoryList(Response.data.data);
+          setSuperCurrentTab(Response.data.data[0]?.category_name);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
         setIsLoading(false);
       }

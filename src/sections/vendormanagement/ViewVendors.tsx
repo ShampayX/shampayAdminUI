@@ -48,6 +48,8 @@ import { useSettingsContext } from "src/components/settings";
 import Label from "src/components/label";
 import VendorTable from "./ViewVendorTable";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure } from "src/utils/apiResult";
+import { useSnackbar } from "src/components/snackbar";
 
 // import { Label } from '@mui/icons-material';
 // ----------------------------------------------------------------------
@@ -106,6 +108,7 @@ interface Props extends CardProps {
   tableLabels: any;
 }
 export default function ViewVendors() {
+  const { enqueueSnackbar } = useSnackbar();
   const { Api } = useAuthContext();
   const navigate = useNavigate();
   const { themeStretch } = useSettingsContext();
@@ -207,12 +210,14 @@ export default function ViewVendors() {
   }, []);
 
   const getvendorlist = () => {
+    // Stage 3 offers optional `page` / `pageSize` / `search` here too. Not opted
+    // into for the same reason as the partner list: ~40 rows, and the server-side
+    // search matches `vendorName` only.
     Api(`vendor/get_VendorList`, "GET", "", "").then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setVdata(Response.data.data);
-        } else {
-        }
+      if (isOk(Response)) {
+        setVdata(Response.data.data);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };

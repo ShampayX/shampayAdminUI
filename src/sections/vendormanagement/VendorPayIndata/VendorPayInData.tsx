@@ -21,6 +21,7 @@ import FormProvider, { RHFSelect } from "../../../components/hook-form";
 import { useSnackbar } from "notistack";
 import VendorMoneyTransferTable from "./VendorPayInDataTable";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 // ----------------------------------------------------------------------
 
@@ -54,12 +55,11 @@ export default function VendorPayInData() {
     let token = localStorage.getItem("token");
     Api(`vendor/showPayInPaymentSlots`, "GET", "", token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            // enqueueSnackbar(Response.data.message);
-            setPayoutData(Response.data.data[0].slots);
-          } else {
-          }
+        if (isOk(Response)) {
+          // enqueueSnackbar(Response.data.message);
+          setPayoutData(Response.data.data[0].slots);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -80,15 +80,14 @@ export default function VendorPayInData() {
       body,
       token
     ).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          enqueueSnackbar(Response.data.message);
-          setSlot([]);
-          setMinAmount("");
-          setMaxAmount("");
-          ShowSlots();
-        } else {
-        }
+      if (isOk(Response)) {
+        enqueueSnackbar(Response.data.message);
+        setSlot([]);
+        setMinAmount("");
+        setMaxAmount("");
+        ShowSlots();
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };

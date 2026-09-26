@@ -36,6 +36,7 @@ import { LoadingButton } from "@mui/lab";
 import { useLocation, useNavigate } from "react-router";
 import { PATH_DASHBOARD } from "src/routes/paths";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 type FormValuesProps = {
   schemeData: {
@@ -134,15 +135,11 @@ export default function EditBillPayments() {
       };
       await Api("bbpsManagement/bbpsScheme/create", "POST", body, token).then(
         (Response: any) => {
-          if (Response?.status == 200) {
-            if (Response.data.code == 200) {
-              enqueueSnackbar(Response.data.message);
-              navigate(PATH_DASHBOARD.scheme.AllbbpsScheme);
-            } else {
-              enqueueSnackbar(Response.data.message);
-            }
+          if (isOk(Response)) {
+            enqueueSnackbar(Response.data.message);
+            navigate(PATH_DASHBOARD.scheme.AllbbpsScheme);
           } else {
-            enqueueSnackbar("Failed");
+            notifyFailure(enqueueSnackbar, Response);
           }
         }
       );

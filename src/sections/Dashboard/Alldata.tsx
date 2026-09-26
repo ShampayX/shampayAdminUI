@@ -21,9 +21,12 @@ import { useEffect, useState } from "react";
 
 import { fIndianCurrency } from "src/utils/formatNumber";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure } from "src/utils/apiResult";
+import { useSnackbar } from "src/components/snackbar";
 
 // ----------------------------------------------------------------------
 export default function Alldata(props: any) {
+  const { enqueueSnackbar } = useSnackbar();
   const { Api } = useAuthContext();
   const theme = useTheme();
 
@@ -148,16 +151,14 @@ export default function Alldata(props: any) {
     let token = localStorage.getItem("token");
     await Api(`dashboard/totalSuccessTransaction`, "GET", "", token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setSuccess({
-              ...Success,
-              count: Response.data.totalTransactions,
-              volume: Response.data.volume,
-            });
-          } else {
-            let msg = Response.data.message;
-          }
+        if (isOk(Response)) {
+          setSuccess({
+            ...Success,
+            count: Response.data.totalTransactions,
+            volume: Response.data.volume,
+          });
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -170,16 +171,14 @@ export default function Alldata(props: any) {
     let token = localStorage.getItem("token");
     await Api(`dashboard/totalPendingTransaction`, "GET", "", token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setPending({
-              ...Pending,
-              count: Response.data.totalTransactions,
-              volume: Response.data.volume,
-            });
-          } else {
-            let msg = Response.data.message;
-          }
+        if (isOk(Response)) {
+          setPending({
+            ...Pending,
+            count: Response.data.totalTransactions,
+            volume: Response.data.volume,
+          });
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -192,16 +191,14 @@ export default function Alldata(props: any) {
     let token = localStorage.getItem("token");
     await Api(`dashboard/totalFailedTransaction`, "GET", "", token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setFailed({
-              ...Failed,
-              count: Response.data.totalTransactions,
-              volume: Response.data.volume,
-            });
-          } else {
-            let msg = Response.data.message;
-          }
+        if (isOk(Response)) {
+          setFailed({
+            ...Failed,
+            count: Response.data.totalTransactions,
+            volume: Response.data.volume,
+          });
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -214,16 +211,14 @@ export default function Alldata(props: any) {
     let token = localStorage.getItem("token");
     await Api(`dashboard/totalTransactions`, "GET", "", token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setTotal({
-              ...Total,
-              count: Response.data.totalTransactions,
-              volume: Response.data.volume,
-            });
-          } else {
-            let msg = Response.data.message;
-          }
+        if (isOk(Response)) {
+          setTotal({
+            ...Total,
+            count: Response.data.totalTransactions,
+            volume: Response.data.volume,
+          });
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -236,12 +231,10 @@ export default function Alldata(props: any) {
   const userOrReachargeTotal = async () => {
     let token = localStorage.getItem("token");
     await Api(`dashboard/userStats`, "GET", "", token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setUserData(Response.data.data);
-        } else {
-          let msg = Response.data.message;
-        }
+      if (isOk(Response)) {
+        setUserData(Response.data.data);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -249,12 +242,10 @@ export default function Alldata(props: any) {
     let token = localStorage.getItem("token");
     await Api(`dashboard/userFundRequestStats`, "GET", "", token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setfundRequest(Response.data.data);
-          } else {
-            let msg = Response.data.message;
-          }
+        if (isOk(Response)) {
+          setfundRequest(Response.data.data);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );

@@ -1,81 +1,173 @@
-import { Card, Stack, Typography } from "@mui/material";
+import { Box, Chip, Stack, Tooltip, Typography, alpha } from "@mui/material";
 import React from "react";
 
-function ModeCustome(props: any) {
+// ----------------------------------------------------------------------
+// One mode of transfer (IMPS / NEFT / RTGS / Fund Transfer / Cash deposit).
+//
+// The old card laid this out as three sibling <Stack> columns - labels, fee
+// types, fee values - each rendering its own rows. The label column skipped a
+// role whose value was empty while the two value columns always rendered all
+// four, so the rows drifted out of step: a value could sit beside a label it
+// did not belong to. The three `noWrap` headings also ran together into
+// "Trans. FeeFee Type Fee Value" as soon as the card narrowed.
+//
+// This renders one labelled row per fact instead, so nothing can misalign, and
+// the mode name is free to wrap rather than being clipped mid-word.
+//
+// Only the API User fee is shown. Agent, Distributor and Master Distributor are
+// gone from ShampayX - the roles collapsed to { Admin, API_User } - so those
+// three fields are legacy data on the bank document and are not rendered.
+// ----------------------------------------------------------------------
+
+type ModeData = {
+  modeName?: string;
+  transactionFeeType?: string;
+  transactionFeeOption?: { for_API_user?: string };
+  transactionFeeValue?: { for_API_user?: string };
+};
+
+/** Reads as a real value; the payload uses "" for "not configured". */
+const isSet = (value?: string | number | null) =>
+  value !== undefined && value !== null && String(value).trim() !== "";
+
+/** "flat" -> ₹250, "percentage" -> 2.5%. */
+function formatFee(option?: string, value?: string) {
+  if (!isSet(value)) return null;
+  const kind = String(option || "").toLowerCase();
+  if (kind.startsWith("perc")) return `${value}%`;
+  return `₹${value}`;
+}
+
+function FactRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <>
-      <Stack>
-        <Card sx={{ p: 2 }}>
-          <Stack flexDirection="row" gap={1}>
-            <Typography variant="h6" noWrap>
-              {props?.modeData?.modeName}
-            </Typography>
+    <Stack
+      direction="row"
+      alignItems="center"
+      justifyContent="space-between"
+      spacing={1}
+      sx={{ py: 0.75 }}
+    >
+      <Typography
+        sx={{ fontSize: 12, color: "text.secondary", fontWeight: 500 }}
+      >
+        {label}
+      </Typography>
+      <Typography
+        sx={{
+          fontSize: 12.5,
+          fontWeight: 700,
+          color: "text.primary",
+          textAlign: "right",
+        }}
+      >
+        {value}
+      </Typography>
+    </Stack>
+  );
+}
 
-            <Typography variant="body1">
-              ({props?.modeData?.transactionFeeType})
-            </Typography>
-          </Stack>
+function ModeCustome(props: { modeData?: ModeData }) {
+  const mode = props?.modeData ?? {};
 
-          <Stack flexDirection="row" justifyContent="space-between">
-            <Stack>
-              <Typography variant="subtitle1" noWrap>
-                Trans. Fee{" "}
-              </Typography>
-              {props?.modeData?.transactionFeeOption?.for_API_user !== "" && (
-                <Typography variant="body2"> API User</Typography>
-              )}
-              {props?.modeData?.transactionFeeOption?.for_Agent !== "" && (
-                <Typography variant="body2"> Agent</Typography>
-              )}
-              {props?.modeData?.transactionFeeOption?.for_Distributor !==
-                "" && <Typography variant="body2"> Distributor</Typography>}
+  const feeType = mode.transactionFeeType; // "Charge" or "Commission"
+  const option = mode.transactionFeeOption?.for_API_user;
+  const fee = formatFee(option, mode.transactionFeeValue?.for_API_user);
 
-              {props?.modeData?.transactionFeeOption?.for_M_Distributor !==
-                "" && (
-                <Typography variant="body2" noWrap>
-                  {" "}
-                  M. Distributor
-                </Typography>
-              )}
-            </Stack>
-            <Stack>
-              <Typography variant="subtitle1" noWrap>
-                Fee Type{" "}
-              </Typography>
-              <Typography variant="body2" ml={2}>
-                {props?.modeData?.transactionFeeOption?.for_API_user}
-              </Typography>
-              <Typography variant="body2" ml={2}>
-                {props?.modeData?.transactionFeeOption?.for_Agent}
-              </Typography>
-              <Typography variant="body2" ml={2}>
-                {props?.modeData?.transactionFeeOption?.for_Distributor}
-              </Typography>
-              <Typography variant="body2" ml={2}>
-                {props?.modeData?.transactionFeeOption?.for_M_Distributor}
-              </Typography>
-            </Stack>
-            <Stack ml={1}>
-              <Typography variant="subtitle1" noWrap>
-                Fee Value{" "}
-              </Typography>
-              <Typography variant="body2" ml={2}>
-                {props?.modeData?.transactionFeeValue?.for_API_user}
-              </Typography>
-              <Typography variant="body2" ml={2}>
-                {props?.modeData?.transactionFeeValue?.for_Agent}
-              </Typography>
-              <Typography variant="body2" ml={2}>
-                {props?.modeData?.transactionFeeValue?.for_Distributor}
-              </Typography>
-              <Typography variant="body2" ml={2}>
-                {props?.modeData?.transactionFeeValue?.for_M_Distributor}
-              </Typography>
-            </Stack>
-          </Stack>
-        </Card>
+  const isCommission = String(feeType || "").toLowerCase() === "commission";
+
+  return (
+    <Box
+      sx={{
+        height: "100%",
+        p: 1.75,
+        borderRadius: 2,
+        bgcolor: "background.paper",
+        border: (theme) => `1px solid ${theme.palette.divider}`,
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      <Stack
+        direction="row"
+        alignItems="flex-start"
+        justifyContent="space-between"
+        spacing={1}
+        sx={{ mb: 1 }}
+      >
+        <Tooltip title={mode.modeName || ""} placement="top">
+          <Typography
+            sx={{
+              fontSize: 14,
+              fontWeight: 700,
+              lineHeight: 1.3,
+              color: "text.primary",
+            }}
+          >
+            {mode.modeName || "Unnamed mode"}
+          </Typography>
+        </Tooltip>
+
+        {isSet(feeType) && (
+          <Chip
+            size="small"
+            label={feeType}
+            sx={{
+              flexShrink: 0,
+              height: 20,
+              fontSize: 10.5,
+              fontWeight: 700,
+              borderRadius: 0.75,
+              color: (theme) =>
+                isCommission
+                  ? theme.palette.success.dark
+                  : theme.palette.primary.main,
+              bgcolor: (theme) =>
+                alpha(
+                  isCommission
+                    ? theme.palette.success.main
+                    : theme.palette.primary.main,
+                  0.12
+                ),
+            }}
+          />
+        )}
       </Stack>
-    </>
+
+      <Box
+        sx={{
+          borderTop: (theme) => `1px solid ${theme.palette.divider}`,
+          pt: 0.5,
+          "& > *:not(:last-of-type)": {
+            borderBottom: (theme) => `1px dashed ${theme.palette.divider}`,
+          },
+        }}
+      >
+        {fee ? (
+          <>
+            <FactRow
+              label="Fee type"
+              value={
+                isSet(option)
+                  ? String(option).replace(/^./, (c) => c.toUpperCase())
+                  : "—"
+              }
+            />
+            <FactRow label="Fee value" value={fee} />
+          </>
+        ) : (
+          <Typography
+            sx={{
+              fontSize: 12,
+              color: "text.disabled",
+              fontStyle: "italic",
+              py: 0.75,
+            }}
+          >
+            No fee configured
+          </Typography>
+        )}
+      </Box>
+    </Box>
   );
 }
 

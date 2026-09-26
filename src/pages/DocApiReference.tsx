@@ -24,6 +24,7 @@ import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import React from "react";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 // import { Label } from '@mui/icons-material';
 
@@ -110,12 +111,11 @@ export default function DocApiReference() {
 
   const getAPIDocumentation = () => {
     Api(`admin/get_APIDocumentation`, "GET", "", "").then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setApiDocData(Response.data.data);
-          setCurrentTab(Response.data.data[0].tabName);
-        } else {
-        }
+      if (isOk(Response)) {
+        setApiDocData(Response.data.data);
+        setCurrentTab(Response.data.data[0].tabName);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -127,15 +127,14 @@ export default function DocApiReference() {
     };
     Api(`admin/add_APIDocumentation`, "POST", body, "").then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setApiDocData([
-              ...apiDocData,
-              { tabName: tabHead, tabContent: tabBody },
-            ]);
-            handleClose();
-          } else {
-          }
+        if (isOk(Response)) {
+          setApiDocData([
+            ...apiDocData,
+            { tabName: tabHead, tabContent: tabBody },
+          ]);
+          handleClose();
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -146,21 +145,24 @@ export default function DocApiReference() {
       tabName: tabHead,
       tabContent: tabBody,
     };
+    // Item 1b: this endpoint used to have its codes swapped - it answered 400 on
+    // success and 200 on "not found" - so this handler was written to treat 400
+    // as the success case. The backend now answers correctly, so the workaround
+    // is removed and success is read the normal way.
     Api(`admin/update_APIDocumentaion/${tabId}`, "POST", body, "").then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 400) {
-            handleClose1();
-            let updated: any = apiDocData.map((item: any) => {
-              if (item._id === tabId) {
-                return { ...item, tabName: tabHead, tabContent: tabBody };
-              }
-              return item;
-            });
+        if (isOk(Response)) {
+          handleClose1();
+          let updated: any = apiDocData.map((item: any) => {
+            if (item._id === tabId) {
+              return { ...item, tabName: tabHead, tabContent: tabBody };
+            }
+            return item;
+          });
 
-            setApiDocData(updated);
-          } else {
-          }
+          setApiDocData(updated);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );

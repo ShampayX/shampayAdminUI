@@ -35,6 +35,7 @@ import { fDateTime } from "src/utils/formatTime";
 import AWS from "aws-sdk";
 import { fetchLocation } from "src/utils/fetchLocation";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 type FormValuesProps = {
   //aadhaar Front
@@ -181,8 +182,6 @@ export default function NewLeadSteps() {
     identityStatus: "",
     verificationStatus: "",
     approvalNotes: "",
-    referralCode: "",
-    referralList: [],
     company_name: "",
     constitutionType: "",
     isGST: null,
@@ -454,11 +453,10 @@ export default function NewLeadSteps() {
       userId: val,
     };
     Api(`admin/getDetail_Agent`, "POST", body, "").then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setValues(Response.data?.data || {});
-        } else {
-        }
+      if (isOk(Response)) {
+        setValues(Response.data?.data || {});
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -620,15 +618,11 @@ export default function NewLeadSteps() {
       await fetchLocation();
       await Api(`admin/update_ApprovalNotes_LTS`, "POST", body, "").then(
         (Response: any) => {
-          if (Response?.status == 200) {
-            if (Response.data.code == 200) {
-              enqueueSnackbar(Response.data.message);
-              navigate(PATH_DASHBOARD.newleads, { state: { data: body } });
-            } else {
-              enqueueSnackbar(Response.data.message);
-            }
+          if (isOk(Response)) {
+            enqueueSnackbar(Response.data.message);
+            navigate(PATH_DASHBOARD.newleads, { state: { data: body } });
           } else {
-            enqueueSnackbar("Failed");
+            notifyFailure(enqueueSnackbar, Response);
           }
         }
       );
@@ -831,12 +825,6 @@ export default function NewLeadSteps() {
                   Contact
                 </Typography>
                 <Typography variant="subtitle1">{value.contact_no}</Typography>
-                <Typography variant="body1" mt={3}>
-                  Referred by
-                </Typography>
-                <Typography variant="subtitle1">
-                  {value.referralCode}
-                </Typography>
                 <Typography variant="body1" mt={3}>
                   Shop District
                 </Typography>

@@ -18,6 +18,10 @@ import {
 import EditIcon from "@mui/icons-material/EditOutlined";
 import SaveIcon from "@mui/icons-material/SaveOutlined";
 import { VendorLane, VendorValue } from "./VendorLane";
+import { isOk, notifyFailure } from "src/utils/apiResult";
+import VendorWarnings, {
+  vendorWarningsOf,
+} from "src/components/VendorWarnings";
 
 // ----------------------------------------------------------------------
 
@@ -44,6 +48,7 @@ export default function MobileVendorSwitch() {
   const [isLoading, setIsLoading] = useState(false);
   const [productId, setProductId] = useState("");
   const [vendorList, setVendorList] = useState([]);
+  const [vendorWarnings, setVendorWarnings] = useState<string[]>([]);
   const [isEdit, setIsEdit] = useState(false);
 
   // Form Controller
@@ -98,20 +103,20 @@ export default function MobileVendorSwitch() {
               "",
               token
             ).then((Response: any) => {
-              if (Response?.status == 200) {
-                if (Response.data.code == 200) {
-                  setValue(
-                    "neoNetworkVendor",
-                    Response.data.data.neoNetworkVendor
-                  );
-                  setValue("apiUserVendor", Response.data.data.apiUserVendor);
-                  setValue(
-                    "directAgentVendor",
-                    Response.data.data.directAgentVendor
-                  );
+              if (isOk(Response)) {
+                setValue(
+                  "neoNetworkVendor",
+                  Response.data.data.neoNetworkVendor
+                );
+                setValue("apiUserVendor", Response.data.data.apiUserVendor);
+                setValue(
+                  "directAgentVendor",
+                  Response.data.data.directAgentVendor
+                );
 
-                  MTVendors();
-                }
+                MTVendors();
+              } else {
+                notifyFailure(enqueueSnackbar, Response);
               }
             });
           }
@@ -126,14 +131,15 @@ export default function MobileVendorSwitch() {
     let token = localStorage.getItem("token");
     await Api(`product/mobile_upi_vendor_list`, "GET", "", token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setVendorList(Response.data.data);
-          }
-          setIsLoading(false);
+        if (isOk(Response)) {
+          setVendorList(Response.data.data);
+          // Item 3b: an empty dropdown used to be indistinguishable from a
+          // broken one. `warnings` sits beside `data`, not inside it.
+          setVendorWarnings(vendorWarningsOf(Response));
         } else {
-          setIsLoading(false);
+          notifyFailure(enqueueSnackbar, Response);
         }
+        setIsLoading(false);
       }
     );
   };
@@ -152,12 +158,12 @@ export default function MobileVendorSwitch() {
       };
       await Api("product/setActiveVendor", "POST", body, token).then(
         (Response: any) => {
-          if (Response?.status == 200) {
-            if (Response.data.code == 200) {
-              enqueueSnackbar(Response.data.message);
-              setIsEdit(!isEdit);
-              getProductlist(CategoryContaxt?._id);
-            }
+          if (isOk(Response)) {
+            enqueueSnackbar(Response.data.message);
+            setIsEdit(!isEdit);
+            getProductlist(CategoryContaxt?._id);
+          } else {
+            notifyFailure(enqueueSnackbar, Response);
           }
         }
       );
@@ -166,6 +172,7 @@ export default function MobileVendorSwitch() {
 
   return (
     <>
+      <VendorWarnings warnings={vendorWarnings} />
       <Helmet>
         <title>Vendor Switch | Shampay Admin</title>
       </Helmet>
@@ -214,7 +221,9 @@ export default function MobileVendorSwitch() {
                     ))}
                   </RHFSelect>
                 ) : (
-                  <VendorValue value={getValues("neoNetworkVendor.vendorName")} />
+                  <VendorValue
+                    value={getValues("neoNetworkVendor.vendorName")}
+                  />
                 )}
               </VendorLane>
 
@@ -239,7 +248,9 @@ export default function MobileVendorSwitch() {
                     ))}
                   </RHFSelect>
                 ) : (
-                  <VendorValue value={getValues("directAgentVendor.vendorName")} />
+                  <VendorValue
+                    value={getValues("directAgentVendor.vendorName")}
+                  />
                 )}
               </VendorLane>
 

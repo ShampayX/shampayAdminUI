@@ -33,6 +33,7 @@ import {
   IconButton,
   Card,
   tableCellClasses,
+  Alert,
 } from "@mui/material";
 import Iconify from "src/components/iconify/Iconify";
 import FormProvider, {
@@ -52,8 +53,18 @@ import ApiDataLoading from "src/components/CustomFunction/ApiDataLoading";
 import {
   TableSkeleton,
   EmptyState,
+  LoadingState,
   PageGhostButton,
+  ModalShell,
+  FormActions,
 } from "src/components/page-kit";
+import { alpha } from "@mui/material/styles";
+import {
+  isOk,
+  failureMessage,
+  notifyFailure,
+  truncationNotice,
+} from "src/utils/apiResult";
 import ErrorOutlineOutlinedIcon from "@mui/icons-material/ErrorOutlineOutlined";
 import RefreshOutlinedIcon from "@mui/icons-material/RefreshOutlined";
 import { fIndianCurrency, fPercent } from "src/utils/formatNumber";
@@ -203,6 +214,8 @@ export default function AllTransactionRecords() {
   const [loadFailed, setLoadFailed] = useState(false);
   const [categoryList, setCategoryList] = useState([]);
   const [vendorList, setVendorList] = useState([]);
+  /** Non-empty when the backend capped this result set. */
+  const [truncation, setTruncation] = useState("");
   const [productList, setProductList] = useState([]);
   const [txnType, setTxnType] = useState([]);
   const [userList, setUserList] = useState([]);
@@ -323,11 +336,10 @@ export default function AllTransactionRecords() {
       let token = localStorage.getItem("token");
       Api(`product/get_ProductList/${val}`, "GET", "", token).then(
         (Response: any) => {
-          if (Response?.status == 200) {
-            if (Response.data.code == 200) {
-              setProductList(Response.data.data);
-            } else {
-            }
+          if (isOk(Response)) {
+            setProductList(Response.data.data);
+          } else {
+            notifyFailure(enqueueSnackbar, Response);
           }
         }
       );
@@ -338,10 +350,10 @@ export default function AllTransactionRecords() {
   const getCategoryList = () => {
     let token = localStorage.getItem("token");
     Api(`category/get_CategoryList`, "GET", "", token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setCategoryList(Response.data.data);
-        }
+      if (isOk(Response)) {
+        setCategoryList(Response.data.data);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -349,10 +361,10 @@ export default function AllTransactionRecords() {
   const getVendorList = () => {
     let token = localStorage.getItem("token");
     Api(`vendor/get_VendorList`, "GET", "", token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setVendorList(Response.data.data);
-        }
+      if (isOk(Response)) {
+        setVendorList(Response.data.data);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -361,12 +373,12 @@ export default function AllTransactionRecords() {
     let token = localStorage.getItem("token");
     Api(`adminTransaction/transactionTypes`, "GET", "", token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setTxnType(
-              Response.data.data.filter((item: string) => item != "Fund Flow")
-            );
-          }
+        if (isOk(Response)) {
+          setTxnType(
+            Response.data.data.filter((item: string) => item != "Fund Flow")
+          );
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -389,11 +401,10 @@ export default function AllTransactionRecords() {
     };
     val.length > 2 &&
       Api(`admin/search_user`, "POST", body, token).then((Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setUserList(Response.data.data);
-          } else {
-          }
+        if (isOk(Response)) {
+          setUserList(Response.data.data);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       });
   };
@@ -436,6 +447,11 @@ export default function AllTransactionRecords() {
             setSdata(Response.data.data.data);
             setTxnCount(Response.data.data.totalNumberOfRecords);
             setLoadFailed(false);
+            // Context: large reports are capped at `rowCeiling` rows and flagged
+            // with `truncated: true`. Saying so matters here - a silently capped
+            // report reads as a complete one, and this is the screen an operator
+            // reconciles from.
+            setTruncation(truncationNotice(Response));
           } else {
             /* A rejected request is not "no transactions" - flag it so the
                table shows a retryable error instead of an empty result. */
@@ -528,18 +544,14 @@ export default function AllTransactionRecords() {
       };
       await Api(`adminTransaction/get_transaction`, "POST", body, token).then(
         (Response: any) => {
-          if (Response?.status == 200) {
-            if (Response.data.code == 200) {
-              setSdata(Response.data.data.data);
+          if (isOk(Response)) {
+            setSdata(Response.data.data.data);
 
-              setTxnCount(Response.data.data.totalNumberOfRecords);
-              filterData(data);
-              handleClose();
-            } else {
-              enqueueSnackbar(Response.data.message, { variant: "error" });
-            }
+            setTxnCount(Response.data.data.totalNumberOfRecords);
+            filterData(data);
+            handleClose();
           } else {
-            enqueueSnackbar("Failed", { variant: "error" });
+            notifyFailure(enqueueSnackbar, Response);
           }
         }
       );
@@ -801,6 +813,13 @@ export default function AllTransactionRecords() {
       <Helmet>
         <title> Transaction Center | Shampay Admin </title>
       </Helmet>
+
+      {truncation && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          {truncation}
+        </Alert>
+      )}
+
       <ReportHeader
         title="Transaction Center"
         subtitle="Every service transaction on the platform, searchable end to end."
@@ -815,7 +834,9 @@ export default function AllTransactionRecords() {
             <ReportActionButton
               tone="alt"
               startIcon={<Inventory2OutlinedIcon />}
-              onClick={() => navigate(PATH_DASHBOARD.reports.HistoricalDataExport)}
+              onClick={() =>
+                navigate(PATH_DASHBOARD.reports.HistoricalDataExport)
+              }
             >
               Export Archive
             </ReportActionButton>
@@ -839,12 +860,17 @@ export default function AllTransactionRecords() {
                     {...params}
                     variant="standard"
                     placeholder="From"
-                    InputProps={{ ...params.InputProps, disableUnderline: true }}
+                    InputProps={{
+                      ...params.InputProps,
+                      disableUnderline: true,
+                    }}
                     sx={{ width: 130 }}
                   />
                 )}
               />
-              <Typography sx={{ fontSize: 12, fontWeight: 700, color: "text.disabled" }}>
+              <Typography
+                sx={{ fontSize: 12, fontWeight: 700, color: "text.disabled" }}
+              >
                 TO
               </Typography>
               <DatePicker
@@ -859,7 +885,10 @@ export default function AllTransactionRecords() {
                     {...params}
                     variant="standard"
                     placeholder="To"
-                    InputProps={{ ...params.InputProps, disableUnderline: true }}
+                    InputProps={{
+                      ...params.InputProps,
+                      disableUnderline: true,
+                    }}
                     sx={{ width: 130 }}
                   />
                 )}
@@ -877,7 +906,9 @@ export default function AllTransactionRecords() {
             onChange={(event) => {
               const value = event.target.value;
               setValue("category.categoryId", value);
-              const picked: any = categoryList.find((item: any) => item._id === value);
+              const picked: any = categoryList.find(
+                (item: any) => item._id === value
+              );
               setValue("category.categoryName", picked?.category_name || "");
               if (value) getProductlist(value);
             }}
@@ -945,7 +976,12 @@ export default function AllTransactionRecords() {
         <Tooltip title="More filters">
           <IconButton
             onClick={handleOpen}
-            sx={{ width: 48, height: 48, border: (t) => `1px solid ${t.palette.divider}`, borderRadius: 1.5 }}
+            sx={{
+              width: 48,
+              height: 48,
+              border: (t) => `1px solid ${t.palette.divider}`,
+              borderRadius: 1.5,
+            }}
           >
             <TuneIcon fontSize="small" />
           </IconButton>
@@ -954,7 +990,12 @@ export default function AllTransactionRecords() {
         <Tooltip title="Reset filters">
           <IconButton
             onClick={handleReset}
-            sx={{ width: 48, height: 48, border: (t) => `1px solid ${t.palette.divider}`, borderRadius: 1.5 }}
+            sx={{
+              width: 48,
+              height: 48,
+              border: (t) => `1px solid ${t.palette.divider}`,
+              borderRadius: 1.5,
+            }}
           >
             <RestartAltIcon fontSize="small" />
           </IconButton>
@@ -971,7 +1012,12 @@ export default function AllTransactionRecords() {
           sx={{ mb: 2.5, px: 0.5 }}
         >
           {uiData.map((item: DashboardProps) => (
-            <Stack key={item.label} direction="row" alignItems="center" spacing={1}>
+            <Stack
+              key={item.label}
+              direction="row"
+              alignItems="center"
+              spacing={1}
+            >
               <Box
                 sx={{
                   width: 9,
@@ -1204,7 +1250,9 @@ export default function AllTransactionRecords() {
                         value={watch("startDate")}
                         minDate={txnMinDate}
                         maxDate={txnMaxDate}
-                        components={{ OpenPickerIcon: CalendarMonthRoundedIcon }}
+                        components={{
+                          OpenPickerIcon: CalendarMonthRoundedIcon,
+                        }}
                         onChange={onChangeStartDate}
                         renderInput={(params: any) => (
                           <TextField
@@ -1221,7 +1269,9 @@ export default function AllTransactionRecords() {
                         value={watch("endDate")}
                         minDate={transactionEndMinDate(watch("startDate"))}
                         maxDate={transactionEndMaxDate(watch("startDate"))}
-                        components={{ OpenPickerIcon: CalendarMonthRoundedIcon }}
+                        components={{
+                          OpenPickerIcon: CalendarMonthRoundedIcon,
+                        }}
                         onChange={onChangeEndDate}
                         renderInput={(params: any) => (
                           <TextField
@@ -1424,7 +1474,9 @@ export default function AllTransactionRecords() {
               borderRadius: 2,
               border: (t) => `1px solid ${t.palette.divider}`,
               boxShadow: (t) =>
-                t.palette.mode === "light" ? "0 2px 12px rgba(15,23,42,0.05)" : "none",
+                t.palette.mode === "light"
+                  ? "0 2px 12px rgba(15,23,42,0.05)"
+                  : "none",
             }}
           >
             <Scrollbar sx={{ overflow: "auto", maxHeight: 620 }}>
@@ -1446,7 +1498,9 @@ export default function AllTransactionRecords() {
                 <TableHead>
                   <TableRow>
                     {tableLabels.map((column: any) => (
-                      <ReportHeadCell key={column.id}>{column.label}</ReportHeadCell>
+                      <ReportHeadCell key={column.id}>
+                        {column.label}
+                      </ReportHeadCell>
                     ))}
                   </TableRow>
                 </TableHead>
@@ -1493,17 +1547,331 @@ export default function AllTransactionRecords() {
 
 // end here main table
 
+/**
+ * Item 3c: `operation` on a vendor-call row. The old array had no such field -
+ * the modal guessed "Transaction" for the first entry and "Check Status" for
+ * every other one, which was wrong for callbacks, refunds and admin overrides.
+ * `unknown` is what backfilled rows carry, because the old array never recorded it.
+ */
+const OPERATION_LABELS: Record<string, string> = {
+  dispatch: "Transaction",
+  checkStatus: "Check Status",
+  callback: "Vendor Callback",
+  manualUpdate: "Manual Update",
+  refund: "Refund",
+  unknown: "Not recorded",
+};
+
+/** Tone per operation, so a timeline row reads at a glance. */
+const OPERATION_TONES: Record<
+  string,
+  "primary" | "info" | "success" | "warning" | "error"
+> = {
+  dispatch: "primary",
+  checkStatus: "info",
+  callback: "success",
+  manualUpdate: "warning",
+  refund: "error",
+};
+
+/**
+ * Vendor request/response bodies arrive as JSON strings. Pretty-print when they
+ * parse; otherwise show the raw text rather than hiding it.
+ */
+function prettyJson(value: any): string {
+  if (value === null || value === undefined || value === "") return "";
+  const text = typeof value === "string" ? value : JSON.stringify(value);
+  try {
+    return JSON.stringify(JSON.parse(text), null, 2);
+  } catch {
+    return text;
+  }
+}
+
+/**
+ * One request or response body: a labelled, scrollable, monospaced panel with a
+ * copy button. Replaces the old raw `<Typography>` wall with `wordBreak:
+ * break-all`, which turned a 2 KB JWT into an unreadable brick.
+ */
+function PayloadPanel({
+  label,
+  value,
+  onCopy,
+}: {
+  label: string;
+  value: any;
+  onCopy: (text: string) => void;
+}) {
+  const text = prettyJson(value);
+
+  return (
+    <Stack sx={{ minWidth: 0, flex: 1 }}>
+      <Stack
+        direction="row"
+        alignItems="center"
+        justifyContent="space-between"
+        sx={{ mb: 0.75 }}
+      >
+        <Typography
+          sx={{
+            fontSize: 10.5,
+            fontWeight: 700,
+            textTransform: "uppercase",
+            letterSpacing: 0.8,
+            color: "text.secondary",
+          }}
+        >
+          {label}
+        </Typography>
+        {text && (
+          <Tooltip title={`Copy ${label.toLowerCase()}`}>
+            <IconButton size="small" onClick={() => onCopy(text)}>
+              <Iconify icon="eva:copy-fill" width={14} />
+            </IconButton>
+          </Tooltip>
+        )}
+      </Stack>
+
+      {text ? (
+        <Box
+          component="pre"
+          sx={{
+            m: 0,
+            p: 1.25,
+            maxHeight: 260,
+            overflow: "auto",
+            borderRadius: 1.5,
+            bgcolor: (t) => alpha(t.palette.text.primary, 0.04),
+            border: (t) => `1px solid ${t.palette.divider}`,
+            fontFamily:
+              "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+            fontSize: 11.5,
+            lineHeight: 1.55,
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+          }}
+        >
+          {text}
+        </Box>
+      ) : (
+        <Typography
+          sx={{ fontSize: 12, color: "text.disabled", fontStyle: "italic" }}
+        >
+          Nothing recorded
+        </Typography>
+      )}
+    </Stack>
+  );
+}
+
+/**
+ * One entry in the vendor call history.
+ *
+ * The data comes from `adminTransaction/vendorCalls/:id` (backend A-014), an
+ * insert-only log. Rows with `origin: "backfill"` were copied out of the old
+ * `checkStatus[]` array, which rewrote its own history (A-012): each new write
+ * overwrote the request and response of every earlier entry, so ~11% of
+ * multi-entry transactions hold one exchange repeated. Those rows are labelled
+ * rather than presented as a clean audit trail.
+ */
+function VendorCallEntry({
+  item,
+  onCopy,
+}: {
+  item: any;
+  onCopy: (text: string) => void;
+}) {
+  const operation = item?.operation || "unknown";
+  const tone = OPERATION_TONES[operation] || "primary";
+  const isBackfill = item?.origin === "backfill";
+
+  return (
+    <Box
+      sx={{
+        borderRadius: 2,
+        border: (t) => `1px solid ${t.palette.divider}`,
+        overflow: "hidden",
+      }}
+    >
+      {/* Header */}
+      <Stack
+        direction={{ xs: "column", sm: "row" }}
+        alignItems={{ xs: "flex-start", sm: "center" }}
+        justifyContent="space-between"
+        spacing={1}
+        sx={{
+          px: 1.75,
+          py: 1.25,
+          bgcolor: (t) => alpha(t.palette[tone].main, 0.06),
+          borderBottom: (t) => `1px solid ${t.palette.divider}`,
+        }}
+      >
+        <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
+          <Chip
+            size="small"
+            label={OPERATION_LABELS[operation] || operation}
+            sx={{
+              height: 22,
+              fontSize: 11,
+              fontWeight: 700,
+              borderRadius: 0.75,
+              color: (t) => t.palette[tone].dark,
+              bgcolor: (t) => alpha(t.palette[tone].main, 0.16),
+            }}
+          />
+          <Typography sx={{ fontSize: 12.5, color: "text.secondary" }}>
+            {fDateTime(item?.createdAt)}
+          </Typography>
+          {isBackfill && (
+            <Tooltip title="Copied from the old checkStatus array. Entries there could overwrite each other, so this request and response may be a later exchange rather than this one.">
+              <Chip
+                size="small"
+                color="warning"
+                variant="outlined"
+                label="Archived record"
+                sx={{ height: 22, fontSize: 11 }}
+              />
+            </Tooltip>
+          )}
+        </Stack>
+
+        <Stack
+          direction="row"
+          alignItems="center"
+          spacing={1.5}
+          flexWrap="wrap"
+        >
+          {item?.vendorName && (
+            <Typography sx={{ fontSize: 12 }}>
+              <Box component="span" sx={{ color: "text.secondary" }}>
+                Vendor{" "}
+              </Box>
+              <Box component="span" sx={{ fontWeight: 700 }}>
+                {item.vendorName}
+              </Box>
+            </Typography>
+          )}
+          {item?.vendorTransactionId && (
+            <Typography sx={{ fontSize: 12 }}>
+              <Box component="span" sx={{ color: "text.secondary" }}>
+                Vendor txn{" "}
+              </Box>
+              <Box component="span" sx={{ fontWeight: 700 }}>
+                {item.vendorTransactionId}
+              </Box>
+            </Typography>
+          )}
+        </Stack>
+      </Stack>
+
+      {/* Who */}
+      <Stack
+        direction="row"
+        alignItems="center"
+        spacing={1}
+        sx={{ px: 1.75, py: 1 }}
+      >
+        <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
+          Performed by
+        </Typography>
+        {item?.performedBy ? (
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <CustomAvatar
+              name={item?.performedBy?.firstName}
+              alt={item?.performedBy?.selfie && item?.performedBy?.selfie[0]}
+              src={item?.performedBy?.selfie && item?.performedBy?.selfie[0]}
+              sx={{ width: 24, height: 24, fontSize: 11 }}
+            />
+            <Typography sx={{ fontSize: 12.5, fontWeight: 600 }}>
+              {item?.performedBy?.firstName} {item?.performedBy?.lastName}
+            </Typography>
+            {item?.performedBy?.userCode && (
+              <Typography sx={{ fontSize: 11.5, color: "text.secondary" }}>
+                ({item.performedBy.userCode})
+              </Typography>
+            )}
+          </Stack>
+        ) : (
+          <Typography
+            sx={{ fontSize: 12.5, color: "text.disabled", fontStyle: "italic" }}
+          >
+            Vendor initiated
+          </Typography>
+        )}
+      </Stack>
+
+      {/* Bodies */}
+      <Stack
+        direction={{ xs: "column", md: "row" }}
+        spacing={2}
+        sx={{ px: 1.75, pb: 1.75 }}
+      >
+        <PayloadPanel
+          label="Request"
+          value={item?.request}
+          onCopy={onCopy}
+        />
+        <PayloadPanel
+          label="Response"
+          value={item?.response}
+          onCopy={onCopy}
+        />
+      </Stack>
+    </Box>
+  );
+}
+
 const TransactionRow = React.memo(({ row }: any) => {
   const { Api } = useAuthContext();
   const theme = useTheme();
   const { enqueueSnackbar } = useSnackbar();
   const [newRow, setNewRow] = useState(row);
   const [expand, setExpand] = useState(false);
-  const [checkStatu, setCheckStatus] = useState([]);
+
+  // ------------------------------------------------------------------
+  // Item 3c: the vendor call history has a real endpoint now.
+  //
+  //   GET adminTransaction/vendorCalls/:transactionId
+  //     -> { code, data: { data: VendorCall[], totalNumberOfRecords }, message }
+  //
+  // This modal used to render the transaction's embedded `checkStatus[]` array.
+  // That array was written with the all-positional operator, so every
+  // check-status call overwrote the request and response of every earlier entry
+  // - a transaction checked five times showed the same exchange five times. The
+  // new collection is insert-only, so the history is real.
+  //
+  // Rows arrive oldest-first from the server, so nothing is sorted here.
+  // ------------------------------------------------------------------
+  const [vendorCalls, setVendorCalls] = useState<any[]>([]);
+  const [vendorCallsLoading, setVendorCallsLoading] = useState(false);
+  const [vendorCallsError, setVendorCallsError] = useState("");
+
+  const loadVendorCalls = useCallback(() => {
+    const id = newRow?._id;
+    if (!id) return;
+    setVendorCallsLoading(true);
+    setVendorCallsError("");
+    const token = localStorage.getItem("token");
+    Api(`adminTransaction/vendorCalls/${id}`, "GET", "", token).then(
+      (Response: any) => {
+        if (isOk(Response)) {
+          setVendorCalls(Response.data?.data?.data || []);
+        } else {
+          setVendorCalls([]);
+          setVendorCallsError(failureMessage(Response));
+        }
+        setVendorCallsLoading(false);
+      }
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newRow?._id]);
 
   //modal for request response
   const [open, setOpen] = React.useState(false);
-  const handleOpen = () => setOpen(true);
+  const handleOpen = () => {
+    setOpen(true);
+    loadVendorCalls();
+  };
   const handleClose = () => setOpen(false);
 
   const subTableLabels = [
@@ -2173,175 +2541,196 @@ const TransactionRow = React.memo(({ row }: any) => {
           }}
         >
           <Scrollbar sx={{ maxHeight: 500 }}>
-            <Table sx={{ minWidth: 650 }}>
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ border: "solid #000" }}>Date</TableCell>
-                  <TableCell sx={{ border: "solid #000" }}>
-                    Transaction
-                  </TableCell>
-                  <TableCell
-                    sx={{ border: "solid #000", whiteSpace: "nowrap" }}
+            {vendorCallsLoading ? (
+              <LoadingState label="Loading vendor call history..." />
+            ) : vendorCallsError ? (
+              <EmptyState
+                icon={<ErrorOutlineOutlinedIcon />}
+                title="Could not load the vendor call history"
+                description={vendorCallsError}
+                action={
+                  <PageGhostButton
+                    startIcon={<RefreshOutlinedIcon />}
+                    onClick={loadVendorCalls}
                   >
-                    Check Status By
-                  </TableCell>
-                  <TableCell align="left" sx={{ border: " solid #000" }}>
-                    Request
-                  </TableCell>
-                  <TableCell align="left" sx={{ border: " solid #000" }}>
-                    Api Response
-                  </TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {row?.checkStatus?.map((item: any, index: number) => {
-                  return (
-                    <TableRow key={item._id}>
-                      <TableCell align="left" sx={{ border: " solid #000" }}>
-                        <Typography color={"text.secondary"} variant="body2">
-                          {fDateTime(item.date)}
-                        </Typography>
-                      </TableCell>
-                      <TableCell
-                        align="left"
-                        sx={{ border: " solid #000", whiteSpace: "nowrap" }}
-                      >
-                        <Typography variant="subtitle1">
-                          {index === 0 ? "Transaction" : "Check Status"}
-                        </Typography>
-                        <Typography variant="body2">
-                          Device : {item?.deviceType}
-                        </Typography>
-                        <Typography variant="body2">
-                          ip : {item?.ipAddress}
-                        </Typography>
-                        <Typography variant="body2">
-                          latitude : {item?.lat}
-                        </Typography>
-                        <Typography variant="body2">
-                          longitude : {item?.long}
-                        </Typography>
-                        <Stack
-                          flexDirection={"row"}
-                          gap={0.5}
-                          alignItems={"center"}
+                    Try again
+                  </PageGhostButton>
+                }
+              />
+            ) : vendorCalls.length === 0 ? (
+              <EmptyState
+                title="No vendor calls recorded"
+                description="Nothing was exchanged with a vendor for this transaction."
+              />
+            ) : (
+              <Table sx={{ minWidth: 650 }}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ border: "solid #000" }}>Date</TableCell>
+                    <TableCell sx={{ border: "solid #000" }}>
+                      Operation
+                    </TableCell>
+                    <TableCell
+                      sx={{ border: "solid #000", whiteSpace: "nowrap" }}
+                    >
+                      Performed By
+                    </TableCell>
+                    <TableCell align="left" sx={{ border: " solid #000" }}>
+                      Request
+                    </TableCell>
+                    <TableCell align="left" sx={{ border: " solid #000" }}>
+                      Api Response
+                    </TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {vendorCalls.map((item: any) => {
+                    const performedBy = item?.performedBy;
+                    return (
+                      <TableRow key={item._id}>
+                        <TableCell align="left" sx={{ border: " solid #000" }}>
+                          <Typography color={"text.secondary"} variant="body2">
+                            {fDateTime(item.createdAt)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell
+                          align="left"
+                          sx={{ border: " solid #000", whiteSpace: "nowrap" }}
                         >
-                          <Stack>
-                            <Typography noWrap variant="body2">
-                              {" "}
-                              Latitude : {item?.lat}{" "}
+                          <Typography variant="subtitle1">
+                            {OPERATION_LABELS[item?.operation] ||
+                              item?.operation ||
+                              "Unknown"}
+                          </Typography>
+                          {item?.vendorName && (
+                            <Typography variant="body2">
+                              Vendor : {item.vendorName}
                             </Typography>
-                            <Typography noWrap variant="body2">
-                              {" "}
-                              Longitude : {item?.long}{" "}
-                            </Typography>
-                          </Stack>
-                          {item?.lat && (
-                            <Iconify
-                              sx={{ width: 18, cursor: "pointer" }}
-                              icon={"line-md:my-location-loop"}
-                              onClick={() =>
-                                window.open(
-                                  `https://maps.google.com/?q=${item?.lat},${item?.long}`
-                                )
-                              }
-                            />
                           )}
-                        </Stack>
-                      </TableCell>
-                      <TableCell
-                        align="left"
-                        sx={{ border: " solid #000", whiteSpace: "nowrap" }}
-                      >
-                        {index !== 0 ? (
-                          <Stack direction="row" alignItems="center" gap={2}>
-                            <CustomAvatar
-                              name={item?.checkStatusDoneBy?.firstName}
-                              alt={
-                                item?.checkStatusDoneBy?.selfie &&
-                                item?.checkStatusDoneBy?.selfie[0]
-                              }
-                              src={
-                                item?.checkStatusDoneBy?.selfie &&
-                                item?.checkStatusDoneBy?.selfie[0]
-                              }
-                            />
-                            <Stack>
-                              <Typography variant="body2">
-                                {item?.checkStatusDoneBy?.firstName}{" "}
-                                {item?.checkStatusDoneBy?.lastName}
-                              </Typography>
-                              <Typography variant="body2">
-                                {item?.checkStatusDoneBy?.role === "agent"
-                                  ? "Agent"
-                                  : item?.checkStatusDoneBy?.role ===
-                                    "distributor"
-                                  ? "Distributor"
-                                  : item?.checkStatusDoneBy?.role ===
-                                    "m_distributor"
-                                  ? "Master Distributor"
-                                  : null}
-                              </Typography>
-                              <Typography variant="body2">
-                                {item?.checkStatusDoneBy?.userCode}
-                              </Typography>
-                              <Typography variant="body2">
-                                {item?.checkStatusDoneBy?.email}
-                              </Typography>
+                          {item?.vendorTransactionId && (
+                            <Typography variant="body2">
+                              Vendor Txn : {item.vendorTransactionId}
+                            </Typography>
+                          )}
+                          {item?.requestId && (
+                            <Typography variant="body2">
+                              Request ID : {item.requestId}
+                            </Typography>
+                          )}
+                          {/* A backfill row was copied out of the old array and
+                              inherits its damage, so it must not be presented as
+                              a trustworthy record of the exchange. */}
+                          {item?.origin === "backfill" && (
+                            <Tooltip
+                              title="Copied from the legacy checkStatus array. Its request and response may have been overwritten by the old append bug, and the operation was not recorded."
+                              TransitionComponent={Zoom}
+                            >
+                              <Chip
+                                size="small"
+                                color="warning"
+                                variant="outlined"
+                                label="Archived record"
+                                sx={{ mt: 0.5 }}
+                              />
+                            </Tooltip>
+                          )}
+                        </TableCell>
+                        <TableCell
+                          align="left"
+                          sx={{ border: " solid #000", whiteSpace: "nowrap" }}
+                        >
+                          {performedBy ? (
+                            <Stack direction="row" alignItems="center" gap={2}>
+                              <CustomAvatar
+                                name={performedBy?.firstName}
+                                alt={
+                                  performedBy?.selfie && performedBy?.selfie[0]
+                                }
+                                src={
+                                  performedBy?.selfie && performedBy?.selfie[0]
+                                }
+                              />
+                              <Stack>
+                                <Typography variant="body2">
+                                  {performedBy?.firstName}{" "}
+                                  {performedBy?.lastName}
+                                </Typography>
+                                <Typography variant="body2">
+                                  {performedBy?.role === "API_User"
+                                    ? "API User"
+                                    : performedBy?.role || null}
+                                </Typography>
+                                <Typography variant="body2">
+                                  {performedBy?.userCode}
+                                </Typography>
+                                <Typography variant="body2">
+                                  {performedBy?.email}
+                                </Typography>
+                              </Stack>
                             </Stack>
-                          </Stack>
-                        ) : null}
-                      </TableCell>
+                          ) : (
+                            /* Absent for vendor-initiated callbacks - say so
+                               rather than leaving the cell blank. */
+                            <Typography
+                              variant="body2"
+                              color="text.disabled"
+                              fontStyle="italic"
+                            >
+                              Vendor initiated
+                            </Typography>
+                          )}
+                        </TableCell>
 
-                      <TableCell align="left" sx={{ border: "solid #000" }}>
-                        <Typography
-                          sx={{
-                            cursor: "pointer",
-                            overflow: "hidden",
-                            wordBreak: "break-all",
-                          }}
-                        >
-                          {item?.vendorApiRequest}
-                          <Icon
-                            style={{
-                              fontSize: "20px",
-                              float: "right",
+                        <TableCell align="left" sx={{ border: "solid #000" }}>
+                          <Typography
+                            sx={{
                               cursor: "pointer",
+                              overflow: "hidden",
+                              wordBreak: "break-all",
                             }}
-                            icon="uil:copy"
-                            onClick={(e) => {
-                              onCopy(item?.vendorApiRequest);
-                            }}
-                          />
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="left" sx={{ border: "solid #000" }}>
-                        <Typography
-                          sx={{
-                            cursor: "pointer",
-                            overflow: "hidden",
-                            wordBreak: "break-all",
-                          }}
-                        >
-                          {item?.vendorApiResponse}
-                          <Icon
-                            style={{
-                              fontSize: "20px",
-                              float: "right",
+                          >
+                            {item?.request}
+                            <Icon
+                              style={{
+                                fontSize: "20px",
+                                float: "right",
+                                cursor: "pointer",
+                              }}
+                              icon="uil:copy"
+                              onClick={(e) => {
+                                onCopy(item?.request);
+                              }}
+                            />
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="left" sx={{ border: "solid #000" }}>
+                          <Typography
+                            sx={{
                               cursor: "pointer",
+                              overflow: "hidden",
+                              wordBreak: "break-all",
                             }}
-                            icon="uil:copy"
-                            onClick={(e) => {
-                              onCopy(item?.vendorApiResponse);
-                            }}
-                          />
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+                          >
+                            {item?.response}
+                            <Icon
+                              style={{
+                                fontSize: "20px",
+                                float: "right",
+                                cursor: "pointer",
+                              }}
+                              icon="uil:copy"
+                              onClick={(e) => {
+                                onCopy(item?.response);
+                              }}
+                            />
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
           </Scrollbar>
           <Button variant="contained" onClick={handleClose} sx={{ mt: 2 }}>
             close
@@ -2424,9 +2813,38 @@ const ApiUserRow = React.memo(({ row }: any) => {
   const [newRow, setNewRow] = useState(row);
   const [expand, setExpand] = useState(false);
 
+  // Item 3c: same switch as TransactionRow above - this is the API-user variant
+  // of the same timeline, and it rendered the same embedded `checkStatus[]`.
+  const [vendorCalls, setVendorCalls] = useState<any[]>([]);
+  const [vendorCallsLoading, setVendorCallsLoading] = useState(false);
+  const [vendorCallsError, setVendorCallsError] = useState("");
+
+  const loadVendorCalls = useCallback(() => {
+    const id = newRow?._id;
+    if (!id) return;
+    setVendorCallsLoading(true);
+    setVendorCallsError("");
+    const token = localStorage.getItem("token");
+    Api(`adminTransaction/vendorCalls/${id}`, "GET", "", token).then(
+      (Response: any) => {
+        if (isOk(Response)) {
+          setVendorCalls(Response.data?.data?.data || []);
+        } else {
+          setVendorCalls([]);
+          setVendorCallsError(failureMessage(Response));
+        }
+        setVendorCallsLoading(false);
+      }
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newRow?._id]);
+
   //modal for request response
   const [open, setOpen] = React.useState(false);
-  const handleOpen = () => setOpen(true);
+  const handleOpen = () => {
+    setOpen(true);
+    loadVendorCalls();
+  };
   const handleClose = () => setOpen(false);
 
   const subTableLabels = [
@@ -3034,535 +3452,62 @@ const ApiUserRow = React.memo(({ row }: any) => {
       <Modal
         open={open}
         onClose={handleClose}
-        aria-labelledby="modal-modal-title"
-        aria-describedby="modal-modal-description"
+        aria-labelledby="vendor-call-history-title"
       >
-        <Box
-          sx={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            bgcolor: "#ffffff",
-            borderRadius: "10px",
-            p: {
-              xs: 1,
-              sm: 4,
-            },
-            width: {
-              xs: "97%",
-              sm: "80%",
-            },
-          }}
+        <ModalShell
+          title="Vendor call history"
+          subtitle={
+            newRow?.clientRefId
+              ? `Every exchange recorded for ${newRow.clientRefId}`
+              : "Every exchange recorded for this transaction"
+          }
+          onClose={handleClose}
+          width={1100}
+          actions={
+            <Button variant="outlined" color="inherit" onClick={handleClose}>
+              Close
+            </Button>
+          }
         >
-          <Table sx={{ minWidth: 650 }}>
-            <Scrollbar sx={{ maxHeight: 600 }}>
-              <TableHead>
-                <TableRow>
-                  <TableCell
-                    sx={{
-                      border: "solid #000",
-                      position: "sticky",
-                      top: 0,
-                      zIndex: 100,
-                    }}
-                  >
-                    Transaction Details
-                  </TableCell>
-                  <TableCell
-                    align="left"
-                    sx={{
-                      border: "solid #000",
-                      position: "sticky",
-                      top: 0,
-                      zIndex: 100,
-                    }}
-                  >
-                    Api Request
-                  </TableCell>
-                  <TableCell
-                    align="left"
-                    sx={{
-                      border: "solid #000",
-                      position: "sticky",
-                      top: 0,
-                      zIndex: 100,
-                    }}
-                  >
-                    Api Response
-                  </TableCell>
-                </TableRow>
-              </TableHead>
+          {vendorCallsLoading ? (
+            <LoadingState label="Loading vendor call history..." />
+          ) : vendorCallsError ? (
+            <EmptyState
+              icon={<ErrorOutlineOutlinedIcon />}
+              title="Could not load the vendor call history"
+              description={vendorCallsError}
+              action={
+                <PageGhostButton
+                  startIcon={<RefreshOutlinedIcon />}
+                  onClick={loadVendorCalls}
+                >
+                  Try again
+                </PageGhostButton>
+              }
+            />
+          ) : vendorCalls.length === 0 ? (
+            <EmptyState
+              title="No vendor calls recorded"
+              description="Nothing was exchanged with a vendor for this transaction."
+            />
+          ) : (
+            <Stack spacing={2}>
+              <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
+                {vendorCalls.length}{" "}
+                {vendorCalls.length === 1 ? "exchange" : "exchanges"}, oldest
+                first.
+              </Typography>
 
-              <TableBody>
-                {newRow?.checkStatus?.map((item: any, index: number) => {
-                  return (
-                    <TableRow key={item._id}>
-                      <TableCell
-                        align="left"
-                        sx={{ border: " solid #000", verticalAlign: "top" }}
-                      >
-                        <Stack>
-                          <Typography
-                            // color={"text.secondary"}
-                            variant="body2"
-                            noWrap
-                          >
-                            {fDateTime(item?.date)}
-                          </Typography>
-                          <Divider sx={{ my: 1 }} />
-                          <Stack>
-                            <Typography variant="subtitle1">
-                              {index === 0 ? "Transaction" : "Check Status"}
-                            </Typography>
-                            <Typography variant="body2">
-                              Device : {item?.deviceType}
-                            </Typography>
-                            <Typography variant="body2">
-                              ip : {item?.ipAddress}
-                            </Typography>
-                            <Stack
-                              flexDirection={"row"}
-                              gap={0.5}
-                              alignItems={"center"}
-                            >
-                              <Stack>
-                                <Typography noWrap variant="body2">
-                                  {" "}
-                                  Latitude : {item?.lat}{" "}
-                                </Typography>
-                                <Typography noWrap variant="body2">
-                                  {" "}
-                                  Longitude : {item?.long}{" "}
-                                </Typography>
-                              </Stack>
-                              {item?.lat && (
-                                <Iconify
-                                  sx={{ width: 18, cursor: "pointer" }}
-                                  icon={"line-md:my-location-loop"}
-                                  onClick={() =>
-                                    window.open(
-                                      `https://maps.google.com/?q=${item?.lat},${item?.long}`
-                                    )
-                                  }
-                                />
-                              )}
-                            </Stack>
-                            <Divider sx={{ my: 1 }} />
-                            <Stack flexDirection="row" gap={1}>
-                              <Typography>Check Status By :</Typography>
-                              {index !== 0 ? (
-                                <Stack
-                                  direction="row"
-                                  alignItems="center"
-                                  gap={2}
-                                >
-                                  <CustomAvatar
-                                    name={item?.checkStatusDoneBy?.firstName}
-                                    alt={
-                                      item?.checkStatusDoneBy?.selfie &&
-                                      item?.checkStatusDoneBy?.selfie[0]
-                                    }
-                                    src={
-                                      item?.checkStatusDoneBy?.selfie &&
-                                      item?.checkStatusDoneBy?.selfie[0]
-                                    }
-                                  />
-                                  <Stack>
-                                    <Typography variant="body2">
-                                      {item?.checkStatusDoneBy?.firstName}{" "}
-                                      {item?.checkStatusDoneBy?.lastName}
-                                    </Typography>
-                                    <Typography variant="body2">
-                                      {item?.checkStatusDoneBy?.role === "agent"
-                                        ? "Agent"
-                                        : item?.checkStatusDoneBy?.role ===
-                                          "distributor"
-                                        ? "Distributor"
-                                        : item?.checkStatusDoneBy?.role ===
-                                          "m_distributor"
-                                        ? "Master Distributor"
-                                        : null}
-                                    </Typography>
-                                    <Typography variant="body2">
-                                      {item?.checkStatusDoneBy?.userCode}
-                                    </Typography>
-                                    <Typography variant="body2">
-                                      {item?.checkStatusDoneBy?.email}
-                                    </Typography>
-                                  </Stack>
-                                </Stack>
-                              ) : null}
-                            </Stack>
-                          </Stack>
-                        </Stack>
-                      </TableCell>
-
-                      <TableCell
-                        align="left"
-                        sx={{
-                          border: "solid #000",
-                          width: "50%",
-                          verticalAlign: "top",
-                          position: "relative",
-                          padding: 0,
-                        }}
-                      >
-                        {/* <Scrollbar sx={{ maxHeight: 300 }}> */}
-                        <Scrollbar>
-                          <Stack style={{ position: "relative", padding: 16 }}>
-                            <Stack
-                              style={{
-                                position: "sticky",
-                                top: 0,
-                                background: "white",
-                                zIndex: 1,
-                                paddingBottom: 8,
-                              }}
-                            >
-                              <Stack flexDirection="row" gap={1}>
-                                <Typography
-                                  variant="h6"
-                                  sx={{
-                                    textDecoration: "underline",
-                                    marginBottom: 2,
-                                  }}
-                                >
-                                  {/* Copy Request Body : */}
-                                </Typography>
-                                <Icon
-                                  style={{
-                                    fontSize: "20px",
-                                    cursor: "pointer",
-                                    marginTop: 1,
-                                  }}
-                                  icon="uil:copy"
-                                  onClick={(e) => {
-                                    onCopy(item?.vendorApiRequest);
-                                  }}
-                                />
-                              </Stack>
-                            </Stack>
-                            <Stack style={{ paddingRight: 16 }}>
-                              <Typography
-                                sx={{
-                                  cursor: "pointer",
-                                  overflow: "hidden",
-                                  wordBreak: "break-all",
-                                }}
-                              >
-                                {item?.vendorApiRequest}
-                              </Typography>
-                            </Stack>
-                          </Stack>
-                        </Scrollbar>
-                      </TableCell>
-
-                      <TableCell
-                        align="left"
-                        sx={{
-                          border: "solid #000",
-                          width: "50%",
-                          position: "relative",
-                          padding: 0,
-                          verticalAlign: "top",
-                        }}
-                      >
-                        <Scrollbar sx={{ maxHeight: 550 }}>
-                          <Stack style={{ position: "relative", padding: 16 }}>
-                            <Stack
-                              style={{
-                                position: "sticky",
-                                top: 0,
-                                background: "white",
-                                zIndex: 1,
-                                paddingBottom: 8,
-                              }}
-                            >
-                              <Stack flexDirection="row" gap={1}>
-                                <Typography
-                                  variant="h6"
-                                  sx={{
-                                    textDecoration: "underline",
-                                    marginBottom: 2,
-                                  }}
-                                ></Typography>
-                                <Icon
-                                  style={{
-                                    fontSize: "20px",
-                                    cursor: "pointer",
-                                    marginTop: 1,
-                                  }}
-                                  icon="uil:copy"
-                                  onClick={(e) => {
-                                    onCopy(item?.vendorApiResponse);
-                                  }}
-                                />
-                              </Stack>
-                            </Stack>
-                            <Stack style={{ paddingRight: 16 }}>
-                              <Typography
-                                sx={{
-                                  cursor: "pointer",
-                                  overflow: "hidden",
-                                  wordBreak: "break-all",
-                                }}
-                              >
-                                {item?.vendorApiResponse}
-                              </Typography>
-                            </Stack>
-                          </Stack>
-                        </Scrollbar>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-
-              {/* ===================Downline===Box===================== */}
-
-              <TableBody>
-                {
-                  //               newRow?.checkStatus?.map((item: any, index: number) => {
-                  //                 return (
-                  //                   <TableRow key={item._id}>
-                  //                     <TableCell
-                  //                       align="left"
-                  //                       sx={{ border: " solid #000", verticalAlign: "top" }}
-                  //                     >
-                  //                       <Stack>
-                  //                         <Typography
-                  //                           // color={"text.secondary"}
-                  //                           variant="body2"
-                  //                           noWrap
-                  //                         >
-                  //                           {fDateTime(item?.date)}
-                  //                         </Typography>
-                  //                         <Divider sx={{ my: 1 }} />
-                  //                         <Stack>
-                  //                           <Typography variant="subtitle1">
-                  //                             {index === 0 ? "Transaction" : "Check Status"}
-                  //                           </Typography>
-                  //                           <Typography variant="body2">
-                  //                             Device : {item?.deviceType}
-                  //                           </Typography>
-                  //                           <Typography variant="body2">
-                  //                             ip : {item?.ipAddress}
-                  //                           </Typography>
-                  //                           <Stack
-                  //                             flexDirection={"row"}
-                  //                             gap={0.5}
-                  //                             alignItems={"center"}
-                  //                           >
-                  //                             <Stack>
-                  //                               <Typography noWrap variant="body2">
-                  //                                 {" "}
-                  //                                 Latitude : {item?.lat}{" "}
-                  //                               </Typography>
-                  //                               <Typography noWrap variant="body2">
-                  //                                 {" "}
-                  //                                 Longitude : {item?.long}{" "}
-                  //                               </Typography>
-                  //                             </Stack>
-                  //                             {item?.lat && (
-                  //                               <Iconify
-                  //                                 sx={{ width: 18, cursor: "pointer" }}
-                  //                                 icon={"line-md:my-location-loop"}
-                  //                                 onClick={() =>
-                  //                                   window.open(
-                  //                                     `https://maps.google.com/?q=${item?.lat},${item?.long}`
-                  //                                   )
-                  //                                 }
-                  //                               />
-                  //                             )}
-                  //                           </Stack>
-                  //                           <Divider sx={{ my: 1 }} />
-                  //                           <Stack flexDirection="row" gap={1}>
-                  //                             <Typography>Send Response To :</Typography>
-                  //                             {index !== 0 ? (
-                  //                               <Stack
-                  //                                 direction="row"
-                  //                                 alignItems="center"
-                  //                                 gap={2}
-                  //                               >
-                  //                                 <CustomAvatar
-                  //                                   name={item?.checkStatusDoneBy?.firstName}
-                  //                                   alt={
-                  //                                     item?.checkStatusDoneBy?.selfie &&
-                  //                                     item?.checkStatusDoneBy?.selfie[0]
-                  //                                   }
-                  //                                   src={
-                  //                                     item?.checkStatusDoneBy?.selfie &&
-                  //                                     item?.checkStatusDoneBy?.selfie[0]
-                  //                                   }
-                  //                                 />
-                  //                                 <Stack>
-                  //                                   <Typography variant="body2">
-                  //                                     {item?.checkStatusDoneBy?.firstName}{" "}
-                  //                                     {item?.checkStatusDoneBy?.lastName}
-                  //                                   </Typography>
-                  //                                   <Typography variant="body2">
-                  //                                     {item?.checkStatusDoneBy?.role === "agent"
-                  //                                       ? "Agent"
-                  //                                       : item?.checkStatusDoneBy?.role ===
-                  //                                         "distributor"
-                  //                                       ? "Distributor"
-                  //                                       : item?.checkStatusDoneBy?.role ===
-                  //                                         "m_distributor"
-                  //                                       ? "Master Distributor"
-                  //                                       : null}
-                  //                                   </Typography>
-                  //                                   <Typography variant="body2">
-                  //                                     {item?.checkStatusDoneBy?.userCode}
-                  //                                   </Typography>
-                  //                                   <Typography variant="body2">
-                  //                                     {item?.checkStatusDoneBy?.email}
-                  //                                   </Typography>
-                  //                                 </Stack>
-                  //                               </Stack>
-                  //                             ) : null}
-                  //                           </Stack>
-                  //                         </Stack>
-                  //                       </Stack>
-                  //                     </TableCell>
-                  // {/* ================ here i have to iterate the downline API============= */}
-                  //                     <TableCell
-                  //                       align="left"
-                  //                       sx={{
-                  //                         border: "solid #000",
-                  //                         width: "50%",
-                  //                         verticalAlign: "top",
-                  //                         position: "relative",
-                  //                         padding: 0,
-                  //                       }}
-                  //                     >
-                  //                       <Scrollbar sx={{ maxHeight: 300 }}>
-                  //                         <Stack style={{ position: "relative", padding: 16 }}>
-                  //                           <Stack
-                  //                             style={{
-                  //                               position: "sticky",
-                  //                               top: 0,
-                  //                               background: "white",
-                  //                               zIndex: 1,
-                  //                               paddingBottom: 8,
-                  //                             }}
-                  //                           >
-                  //                             <Stack flexDirection="row" gap={1}>
-                  //                               <Typography
-                  //                                 variant="h6"
-                  //                                 sx={{
-                  //                                   textDecoration: "underline",
-                  //                                   marginBottom: 2,
-                  //                                 }}
-                  //                               >
-                  //                                 {/* Copy Request Body : */}
-                  //                               </Typography>
-                  //                               <Icon
-                  //                                 style={{
-                  //                                   fontSize: "20px",
-                  //                                   cursor: "pointer",
-                  //                                   marginTop: 1,
-                  //                                 }}
-                  //                                 icon="uil:copy"
-                  //                                 onClick={(e) => {
-                  //                                   onCopy(item?.vendorApiRequest);
-                  //                                 }}
-                  //                               />
-                  //                             </Stack>
-                  //                           </Stack>
-                  //                           <Stack style={{ paddingRight: 16 }}>
-                  //                             <Typography fontWeight="bold"
-                  //                               sx={{
-                  //                                 cursor: "pointer",
-                  //                                 overflow: "hidden",
-                  //                                 wordBreak: "break-all",
-                  //                                 fontSize: "24px",
-                  //                               }}
-                  //                             >
-                  //                              Downline
-                  //                             </Typography>
-                  //                           </Stack>
-                  //                         </Stack>
-                  //                       </Scrollbar>
-                  //                     </TableCell>
-                  //                     <TableCell
-                  //                       align="left"
-                  //                       sx={{
-                  //                         border: "solid #000",
-                  //                         width: "50%",
-                  //                         position: "relative",
-                  //                         padding: 0,
-                  //                         verticalAlign: "top",
-                  //                       }}
-                  //                     >
-                  //                       <Scrollbar sx={{ maxHeight: 300 }}>
-                  //                         <Stack style={{ position: "relative", padding: 16 }}>
-                  //                           <Stack
-                  //                             style={{
-                  //                               position: "sticky",
-                  //                               top: 0,
-                  //                               background: "white",
-                  //                               zIndex: 1,
-                  //                               paddingBottom: 8,
-                  //                             }}
-                  //                           >
-                  //                             <Stack flexDirection="row" gap={1}>
-                  //                               <Typography
-                  //                                 variant="h6"
-                  //                                 sx={{
-                  //                                   textDecoration: "underline",
-                  //                                   marginBottom: 2,
-                  //                                 }}
-                  //                               ></Typography>
-                  //                               <Icon
-                  //                                 style={{
-                  //                                   fontSize: "20px",
-                  //                                   cursor: "pointer",
-                  //                                   marginTop: 1,
-                  //                                 }}
-                  //                                 icon="uil:copy"
-                  //                                 onClick={(e) => {
-                  //                                   // onCopy(item?.vendorApiResponse);
-                  //                                 }}
-                  //                               />
-                  //                             </Stack>
-                  //                           </Stack>
-                  //                           <Stack style={{ paddingRight: 16 }}>
-                  //                             <Typography
-                  //                               sx={{
-                  //                                 cursor: "pointer",
-                  //                                 overflow: "hidden",
-                  //                                 wordBreak: "break-all",
-                  //                               }}
-                  //                             >
-                  //                              {/* {downlineData.map((item,index) => ( */}
-                  //                              {downlineData.length > 0 && (
-                  //                                <>
-                  //                             Client Ref ID: {downlineData[0].clientRefId} <br/>
-                  //                             Partner Transaction ID: {downlineData[0].partnerTransactionId}<br/>
-                  //                             Status: {downlineData[0].status}<br/>
-                  //                             UTR: {downlineData[0].utr}<br/>
-                  //                             Remarks: {downlineData[0].remarks}
-                  //                                </>
-                  //                             )}
-                  //                             {/* {"Response"} */}
-                  //                             </Typography>
-                  //                           </Stack>
-                  //                         </Stack>
-                  //                       </Scrollbar>
-                  //                     </TableCell>
-                  //                   </TableRow>
-                  //                 );
-                  //               })
-                }
-              </TableBody>
-            </Scrollbar>
-          </Table>
-
-          <Button variant="contained" onClick={handleClose} sx={{ mt: 2 }}>
-            Close
-          </Button>
-        </Box>
+              {vendorCalls.map((item: any, index: number) => (
+                <VendorCallEntry
+                  key={item._id || index}
+                  item={item}
+                  onCopy={onCopy}
+                />
+              ))}
+            </Stack>
+          )}
+        </ModalShell>
       </Modal>
 
       {/* end logs modal popup here*/}
@@ -3570,29 +3515,57 @@ const ApiUserRow = React.memo(({ row }: any) => {
       <Modal
         open={open1}
         onClose={handleClose1}
-        aria-labelledby="modal-modal-title"
-        aria-describedby="modal-modal-description"
+        aria-labelledby="update-transaction-title"
       >
-        <Box
-          sx={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            bgcolor: "#ffffff",
-            borderRadius: 2,
-            p: 4,
-            width: {
-              xs: "100%",
-              sm: 450,
-            },
+        <ModalShell
+          title="Update transaction status"
+          subtitle={
+            newRow?.clientRefId
+              ? `Manual override for ${newRow.clientRefId}`
+              : "Manual override"
+          }
+          onClose={() => {
+            handleClose1();
+            reset(defaultValues);
           }}
+          width={520}
         >
           <FormProvider
             methods={methods}
             onSubmit={handleSubmit(updateTransaction)}
           >
-            <Stack gap={2}>
+            {/* This writes the outcome by hand rather than asking the vendor.
+                It lands in the vendor call history as a `manualUpdate` row, and
+                unlike the payout check-status path it is deliberately NOT
+                guarded against a concurrent settlement (backend A-013) - an
+                admin override is where refusing a change is most likely to be
+                wrong. Say so rather than letting it look like a status read. */}
+            <Stack
+              direction="row"
+              spacing={1}
+              alignItems="flex-start"
+              sx={{
+                mb: 2.5,
+                p: 1.25,
+                borderRadius: 1.5,
+                bgcolor: (t) => alpha(t.palette.warning.main, 0.08),
+                border: (t) =>
+                  `1px solid ${alpha(t.palette.warning.main, 0.28)}`,
+              }}
+            >
+              <Iconify
+                icon="eva:alert-triangle-fill"
+                width={16}
+                sx={{ color: "warning.dark", mt: 0.2, flexShrink: 0 }}
+              />
+              <Typography sx={{ fontSize: 12.5, color: "warning.darker" }}>
+                This sets the outcome by hand instead of asking the vendor. It
+                is recorded against your account in the vendor call history and
+                cannot be undone from this screen.
+              </Typography>
+            </Stack>
+
+            <Stack gap={2.5}>
               <RHFSelect
                 name="updatedstatus"
                 label="Status"
@@ -3601,39 +3574,52 @@ const ApiUserRow = React.memo(({ row }: any) => {
                   native: false,
                   sx: { textTransform: "capitalize" },
                 }}
-                // disabled={
-                //   newRow?.vendorName == "SETU" &&
-                //   newRow?.transactionType == "Beneficiary Verification"
-                // }
               >
                 <MenuItem value="success">Success</MenuItem>
                 <MenuItem value="failed">Failed</MenuItem>
               </RHFSelect>
-              <RHFTextField name="vendorutr" label="Vendor UTR" />
-              <RHFTextField name="remarks" label="Remarks" />
-              <RHFTextField name="vendortxnid" label="Vendor Transaction Id" />
-              <Stack flexDirection={"row"} gap={1}>
-                <LoadingButton
-                  variant="contained"
-                  type="submit"
-                  loading={isSubmitting}
-                  disabled={!isValid}
-                >
-                  Update
-                </LoadingButton>
-                <LoadingButton
-                  variant="contained"
-                  onClick={() => {
-                    handleClose1();
-                    reset(defaultValues);
-                  }}
-                >
-                  Cancel
-                </LoadingButton>
-              </Stack>
+
+              <RHFTextField
+                name="vendorutr"
+                label="Vendor UTR"
+                helperText="The bank reference the vendor settled against."
+              />
+              <RHFTextField
+                name="vendortxnid"
+                label="Vendor transaction ID"
+                helperText="The vendor's own ID for this transaction."
+              />
+              <RHFTextField
+                name="remarks"
+                label="Remarks"
+                multiline
+                rows={2}
+                helperText="Why this is being set by hand. Kept with the record."
+              />
             </Stack>
+
+            <FormActions>
+              <Button
+                variant="outlined"
+                color="inherit"
+                onClick={() => {
+                  handleClose1();
+                  reset(defaultValues);
+                }}
+              >
+                Cancel
+              </Button>
+              <LoadingButton
+                variant="contained"
+                type="submit"
+                loading={isSubmitting}
+                disabled={!isValid}
+              >
+                Update transaction
+              </LoadingButton>
+            </FormActions>
           </FormProvider>
-        </Box>
+        </ModalShell>
       </Modal>
     </>
   );

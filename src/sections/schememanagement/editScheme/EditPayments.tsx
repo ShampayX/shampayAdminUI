@@ -3,8 +3,11 @@ import { Stack, Tabs, Tab } from "@mui/material";
 import { useAuthContext } from "src/auth/useAuthContext";
 import { SchemeDetail } from "../ManageScheme/EditScheme";
 import EditCreditCard from "../Paymentsscheme/EditCreditCard";
+import { isOk, notifyFailure } from "src/utils/apiResult";
+import { useSnackbar } from "src/components/snackbar";
 
 function EditPaymentScheme() {
+  const { enqueueSnackbar } = useSnackbar();
   const { Api } = useAuthContext();
   const [productList, setProductList] = useState([]);
   const schemeDetail: any = useContext(SchemeDetail);
@@ -22,11 +25,11 @@ function EditPaymentScheme() {
       "",
       token
     ).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setProductList(Response?.data?.data);
-          setCurrentTab(Response?.data?.data[0]?._id);
-        }
+      if (isOk(Response)) {
+        setProductList(Response?.data?.data);
+        setCurrentTab(Response?.data?.data[0]?._id);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };

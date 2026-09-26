@@ -35,6 +35,7 @@ import { Upload } from "src/components/upload";
 
 import FormProvider, { RHFTextField } from "../../components/hook-form";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 // import { Label } from '@mui/icons-material';
 
@@ -84,16 +85,15 @@ export default function Other() {
       productFor: "",
     };
     Api("product/product_Filter", "POST", body, "").then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          let filter = Response.data.data.filter((item: any) => {
-            return item.productName == "Money Transfer";
-          });
-          setProduct(filter[0]);
-          setLimit(filter[0].maxMoneyTransferLimit / 25000);
-          SetUpiLimit(filter[0].maxUpiTransferLimit / 25000);
-        } else {
-        }
+      if (isOk(Response)) {
+        let filter = Response.data.data.filter((item: any) => {
+          return item.productName == "Money Transfer";
+        });
+        setProduct(filter[0]);
+        setLimit(filter[0].maxMoneyTransferLimit / 25000);
+        SetUpiLimit(filter[0].maxUpiTransferLimit / 25000);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -103,13 +103,12 @@ export default function Other() {
   const CollectVPACharge = () => {
     let token = localStorage.getItem("token");
     Api(`admin/adminDetails`, "GET", "", token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setVpaCharge(Response.data.data.vpaCharge);
-          setGSTAttempt(Response.data.data.GST_Attempt);
-          setPANAttempt(Response.data.data.PAN_Attempt);
-        } else {
-        }
+      if (isOk(Response)) {
+        setVpaCharge(Response.data.data.vpaCharge);
+        setGSTAttempt(Response.data.data.GST_Attempt);
+        setPANAttempt(Response.data.data.PAN_Attempt);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -122,12 +121,10 @@ export default function Other() {
     };
     Api(`product/setMoneyTransferMaxTxnLimit`, "POST", body, token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            enqueueSnackbar(Response.data.message);
-          } else {
-            enqueueSnackbar(Response.data.message);
-          }
+        if (isOk(Response)) {
+          enqueueSnackbar(Response.data.message);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -141,12 +138,10 @@ export default function Other() {
     };
     Api(`product/setMoneyTransferUpiMaxTxnLimit`, "POST", body, token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            enqueueSnackbar(Response.data.message);
-          } else {
-            enqueueSnackbar(Response.data.message);
-          }
+        if (isOk(Response)) {
+          enqueueSnackbar(Response.data.message);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -160,13 +155,11 @@ export default function Other() {
       vpaCharge: vpalimitNum,
     };
     Api(`admin/setVPACharge`, "POST", body, token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setVpaCharge(vpaLimit);
-          enqueueSnackbar(Response.data.message);
-        } else {
-          enqueueSnackbar(Response.data.message);
-        }
+      if (isOk(Response)) {
+        setVpaCharge(vpaLimit);
+        enqueueSnackbar(Response.data.message);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -180,14 +173,12 @@ export default function Other() {
     };
 
     Api(`admin/set_KYC_attempt`, "POST", body, token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setGSTAttempt(GSTUpdate);
-          setPANAttempt(PANUpdate);
-          enqueueSnackbar(Response.data.message);
-        } else {
-          enqueueSnackbar(Response.data.message);
-        }
+      if (isOk(Response)) {
+        setGSTAttempt(GSTUpdate);
+        setPANAttempt(PANUpdate);
+        enqueueSnackbar(Response.data.message);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -248,7 +239,9 @@ export default function Other() {
           </FormProvider>
 
           <Stack direction="row" justifyContent="flex-end" sx={{ mt: 3 }}>
-            <PageActionButton onClick={sendLimit}>Update Limit</PageActionButton>
+            <PageActionButton onClick={sendLimit}>
+              Update Limit
+            </PageActionButton>
           </Stack>
         </FormCard>
 
@@ -288,7 +281,9 @@ export default function Other() {
           </FormProvider>
 
           <Stack direction="row" justifyContent="flex-end" sx={{ mt: 3 }}>
-            <PageActionButton onClick={sendUpiLimit}>Update Limit</PageActionButton>
+            <PageActionButton onClick={sendUpiLimit}>
+              Update Limit
+            </PageActionButton>
           </Stack>
         </FormCard>
 
@@ -339,7 +334,9 @@ export default function Other() {
           </FormProvider>
 
           <Stack direction="row" justifyContent="flex-end" sx={{ mt: 3 }}>
-            <PageActionButton onClick={setGSAttempts}>Update Limits</PageActionButton>
+            <PageActionButton onClick={setGSAttempts}>
+              Update Limits
+            </PageActionButton>
           </Stack>
         </FormCard>
       </Box>

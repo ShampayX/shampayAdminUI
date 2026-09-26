@@ -19,8 +19,10 @@ import AwsDocSign from "../../components/CustomFunction/AwsDocSign";
 import ApiDataLoading from "../../components/CustomFunction/ApiDataLoading";
 import { fDateTime } from "src/utils/formatTime";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { useSnackbar } from "src/components/snackbar";
 
 import { LEAD_COLUMNS } from "./leadColumns";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 type RowProps = {
   firstName: string;
   lastName: string;
@@ -30,7 +32,6 @@ type RowProps = {
   emailVerify: boolean;
   _id: string;
   selfie: string;
-  referralCode: string;
   contact_no: string;
   role: string;
   createdAt: string;
@@ -43,6 +44,7 @@ type RowProps = {
 };
 
 export default function Rejected() {
+  const { enqueueSnackbar } = useSnackbar();
   const { Api } = useAuthContext();
   const [rejectedData, setRejectedData] = useState<RowProps[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -62,12 +64,11 @@ export default function Rejected() {
       },
     };
     Api(`admin/get_RejectedList`, "POST", body, token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setRejectedData(Response.data.data);
-          setTxnCount(Response.data.count);
-        } else {
-        }
+      if (isOk(Response)) {
+        setRejectedData(Response.data.data);
+        setTxnCount(Response.data.count);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
       setIsLoading(false);
     });

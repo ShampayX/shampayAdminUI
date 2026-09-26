@@ -35,6 +35,7 @@ import * as Yup from "yup";
 import { fDate, fDateFormatForApi, fDateTime } from "src/utils/formatTime";
 import MotionModal from "src/components/animate/MotionModal";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 type RowProps = {
   id: string;
@@ -53,14 +54,12 @@ type RowProps = {
   total: number;
   rank: string;
   finalStatus: string;
-  referralCode: string;
   contact_no: string;
   role: string;
   createdAt: string;
   company_name: string;
   selfie: any;
   main_wallet_amount: string;
-  AEPS_wallet_amount: string;
   fingPayAEPSKycStatus: string;
   fingPayAPESRegistrationStatus: string;
   userCode: string;
@@ -206,15 +205,12 @@ function UserDetail({ row }: ChildProps) {
       searchInput: val,
     };
     Api(`admin/search_user`, "POST", body, token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setSelectedData(Response.data.data);
-        } else {
-        }
-        setIsLoading(false);
+      if (isOk(Response)) {
+        setSelectedData(Response.data.data);
       } else {
-        setIsLoading(false);
+        notifyFailure(enqueueSnackbar, Response);
       }
+      setIsLoading(false);
     });
   };
 
@@ -267,14 +263,12 @@ function UserDetail({ row }: ChildProps) {
       "",
       token
     ).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          handleOpenNetwork();
-          setNetworkCount(Response.data.count);
-          setNetworkData(Response.data.data);
-        } else {
-          enqueueSnackbar(Response.data.message);
-        }
+      if (isOk(Response)) {
+        handleOpenNetwork();
+        setNetworkCount(Response.data.count);
+        setNetworkData(Response.data.data);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
       setIsNetworkLoading(false);
     });
@@ -322,22 +316,7 @@ function UserDetail({ row }: ChildProps) {
           </Typography>
         </TableCell>
 
-        <TableCell>
-          {row.referralCode != "" ? (
-            <Typography
-              sx={{
-                color: "primary.main",
-                cursor: "pointer",
-              }}
-              onClick={() => searchFromUser(row.referralCode)}
-            >
-              {" "}
-              {row.referralCode}{" "}
-            </Typography>
-          ) : (
-            "NA"
-          )}
-        </TableCell>
+        <TableCell>{"NA"}</TableCell>
         <TableCell>{row.mobileVerify ? "Verified" : "Unverified"}</TableCell>
         <TableCell>{row.contact_no}</TableCell>
         <TableCell>{row.emailVerify ? "Verified" : "Unverified"}</TableCell>
@@ -346,30 +325,15 @@ function UserDetail({ row }: ChildProps) {
             <Label variant="soft" color={"primary"} sx={walletStyle}>
               Main = {fIndianCurrency(row?.main_wallet_amount) || 0}
             </Label>
-            <Label variant="soft" color={"warning"} sx={walletStyle}>
-              Aeps = {fIndianCurrency(row?.AEPS_wallet_amount) || 0}
-            </Label>
           </Stack>
         </TableCell>
         <TableCell sx={{ textAlign: "center" }}>Yes</TableCell>
         <TableCell sx={{ textAlign: "center" }}>
           <Stack gap={1}>
-            <LoadingButton
-              variant="contained"
-              onClick={() => {
-                if (row.role === "agent") {
-                  handleClick();
-                  ViewAEPS();
-                }
-              }}
-              disabled={
-                row.role !== "agent" ||
-                isLoading ||
-                !(row.fingPayAEPSKycStatus && row.fingPayAPESRegistrationStatus)
-              }
-            >
-              AEPS Attendance
-            </LoadingButton>
+            {/* The "AEPS Attendance" button was removed. It was gated on
+                `row.role === "agent"`, and there is no agent role any more -
+                roles are { Admin, API_User } - so it could only ever render
+                disabled. `admin/getAepsUserAttendance` is untouched. */}
             <LoadingButton
               variant="contained"
               onClick={() => window.open(row?.eAgreement_Signed_URL)}
@@ -625,22 +589,7 @@ function UserDetail({ row }: ChildProps) {
                               : "Direct Agent"}
                           </TableCell>
 
-                          <TableCell>
-                            {row.referralCode != "" ? (
-                              <Typography
-                                sx={{
-                                  color: "primary.main",
-                                  cursor: "pointer",
-                                }}
-                                onClick={() => searchFromUser(row.referralCode)}
-                              >
-                                {" "}
-                                {row.referralCode}{" "}
-                              </Typography>
-                            ) : (
-                              "NA"
-                            )}
-                          </TableCell>
+                          <TableCell>{"NA"}</TableCell>
                           <TableCell>
                             {row.mobileVerify ? "Verified" : "Unverified"}
                           </TableCell>
@@ -657,14 +606,6 @@ function UserDetail({ row }: ChildProps) {
                               >
                                 Main ={" "}
                                 {fIndianCurrency(row?.main_wallet_amount) || 0}
-                              </Label>
-                              <Label
-                                variant="soft"
-                                color={"warning"}
-                                sx={walletStyle}
-                              >
-                                Aeps ={" "}
-                                {fIndianCurrency(row?.AEPS_wallet_amount) || 0}
                               </Label>
                             </Stack>
                           </TableCell>

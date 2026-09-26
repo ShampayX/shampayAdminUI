@@ -79,6 +79,7 @@ import {
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { CustomAvatar } from "src/components/custom-avatar";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 // ----------------------------------------------------------------------
 
 type FormValuesProps = {
@@ -137,7 +138,8 @@ export default function AllTransactionRecords() {
     date: "",
     clientRefId: "",
     walletId: "",
-    walletType: "",
+    /* Pinned - see the note where the wallet-type filter used to be. */
+    walletType: "MAIN",
     startDate: null,
     endDate: null,
     formattedEndDate: null,
@@ -146,9 +148,9 @@ export default function AllTransactionRecords() {
   const methods = useForm<FormValuesProps>({
     resolver: yupResolver(FilterSchema),
     // defaultValues,
-    defaultValues : {
-      searchBy: "partnerId"
-    }
+    defaultValues: {
+      searchBy: "partnerId",
+    },
   });
   const {
     reset,
@@ -184,7 +186,7 @@ export default function AllTransactionRecords() {
         getValues("partnerId") ||
         "",
       clientRefId: getValues("clientRefId") || "",
-      walletType: getValues("walletType") || "",
+      walletType: "MAIN",
       startDate: formattedStartDate,
       endDate: formattedEndDate,
     };
@@ -218,10 +220,10 @@ export default function AllTransactionRecords() {
     };
     val.length > 2 &&
       Api(`admin/search_user`, "POST", body, "").then((Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setUserList(Response.data.data);
-          }
+        if (isOk(Response)) {
+          setUserList(Response.data.data);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       });
   };
@@ -285,7 +287,7 @@ export default function AllTransactionRecords() {
         data.partnerId,
       clientRefId: data.clientRefId,
       walletId: data.walletId,
-      walletType: data.walletType,
+      walletType: "MAIN",
       startDate: formattedStartDate || "",
       endDate: formattedEndDate || "",
     };
@@ -328,7 +330,9 @@ export default function AllTransactionRecords() {
             <ReportActionButton
               tone="alt"
               startIcon={<Inventory2OutlinedIcon />}
-              onClick={() => navigate(PATH_DASHBOARD.reports.HistoricalDataExport)}
+              onClick={() =>
+                navigate(PATH_DASHBOARD.reports.HistoricalDataExport)
+              }
             >
               Export Archive
             </ReportActionButton>
@@ -348,18 +352,25 @@ export default function AllTransactionRecords() {
                   value={watch("startDate")}
                   inputFormat="DD/MM/YYYY HH:mm"
                   maxDate={new Date()}
-                  onChange={(newValue: Date | null) => setValue("startDate", newValue)}
+                  onChange={(newValue: Date | null) =>
+                    setValue("startDate", newValue)
+                  }
                   renderInput={(params: any) => (
                     <TextField
                       {...params}
                       variant="standard"
                       placeholder="From"
-                      InputProps={{ ...params.InputProps, disableUnderline: true }}
+                      InputProps={{
+                        ...params.InputProps,
+                        disableUnderline: true,
+                      }}
                       sx={{ width: 150 }}
                     />
                   )}
                 />
-                <Typography sx={{ fontSize: 12, fontWeight: 700, color: "text.disabled" }}>
+                <Typography
+                  sx={{ fontSize: 12, fontWeight: 700, color: "text.disabled" }}
+                >
                   TO
                 </Typography>
                 <DateTimePicker
@@ -367,13 +378,18 @@ export default function AllTransactionRecords() {
                   inputFormat="DD/MM/YYYY HH:mm"
                   minDate={watch("startDate") || undefined}
                   maxDate={new Date()}
-                  onChange={(newValue: Date | null) => setValue("endDate", newValue)}
+                  onChange={(newValue: Date | null) =>
+                    setValue("endDate", newValue)
+                  }
                   renderInput={(params: any) => (
                     <TextField
                       {...params}
                       variant="standard"
                       placeholder="To"
-                      InputProps={{ ...params.InputProps, disableUnderline: true }}
+                      InputProps={{
+                        ...params.InputProps,
+                        disableUnderline: true,
+                      }}
                       sx={{ width: 150 }}
                     />
                   )}
@@ -382,21 +398,10 @@ export default function AllTransactionRecords() {
             </FilterSlot>
           </LocalizationProvider>
 
-          <FilterSlot icon={<AccountBalanceWalletOutlinedIcon />}>
-            <TextField
-              select
-              fullWidth
-              variant="standard"
-              value={watch("walletType") || ""}
-              onChange={(event) => setValue("walletType", event.target.value)}
-              InputProps={{ disableUnderline: true }}
-              SelectProps={{ displayEmpty: true }}
-            >
-              <MenuItem value="">All Wallets</MenuItem>
-              <MenuItem value="MAIN">Main</MenuItem>
-              <MenuItem value="AEPS">AEPS</MenuItem>
-            </TextField>
-          </FilterSlot>
+          {/* The wallet-type filter is gone. It offered All / Main / AEPS, and
+              with the AEPS wallet out of this console there is one option
+              left - so `walletType` is pinned to "MAIN" in the request below
+              and the screen lists main-wallet movement only. */}
 
           <FilterSlot icon={<PersonSearchOutlinedIcon />} minWidth={220}>
             <Box sx={{ position: "relative" }}>
@@ -441,7 +446,10 @@ export default function AllTransactionRecords() {
                             ? setValue("masterDistributorId", item._id)
                             : setValue("partnerId", item._id);
                           setUserList([]);
-                          setValue("User", `${item.firstName} ${item.lastName}`);
+                          setValue(
+                            "User",
+                            `${item.firstName} ${item.lastName}`
+                          );
                         }}
                       >
                         {item.userCode
@@ -504,7 +512,9 @@ export default function AllTransactionRecords() {
               borderRadius: 2,
               border: (t) => `1px solid ${t.palette.divider}`,
               boxShadow: (t) =>
-                t.palette.mode === "light" ? "0 2px 12px rgba(15,23,42,0.05)" : "none",
+                t.palette.mode === "light"
+                  ? "0 2px 12px rgba(15,23,42,0.05)"
+                  : "none",
             }}
           >
             <Scrollbar sx={{ overflow: "auto", maxHeight: 620 }}>
@@ -512,7 +522,9 @@ export default function AllTransactionRecords() {
                 <TableHead>
                   <TableRow>
                     {tableLabels.map((column: any) => (
-                      <ReportHeadCell key={column.id}>{column.label}</ReportHeadCell>
+                      <ReportHeadCell key={column.id}>
+                        {column.label}
+                      </ReportHeadCell>
                     ))}
                   </TableRow>
                 </TableHead>
@@ -605,11 +617,15 @@ const WalletRow = React.memo(({ row }: any) => {
     }
   };
 
+  /* The Agent / Distributor / Master Distributor columns are gone: those roles
+     no longer exist, so `transaction.agentDetails`, `.distributorDetails` and
+     `.masterDistributorDetails` can only ever be empty. `partnerDetails` is
+     the surviving block and carries the opening and closing balance only -
+     it has no commission, credit or TDS field, so those rows are not shown.
+     GST and TDS are top-level on the transaction and already have a column. */
   const tableLabels = [
     { id: "Product/TransactionType", label: "Product/TransactionType " },
-    { id: "Agent Details", label: "Agent Details" },
-    { id: "Distributor Details", label: "Distributor Details " },
-    { id: "Master Distributor Details", label: "Master Distributor Details " },
+    { id: "Partner Details", label: "Partner Details" },
     { id: "BeneficiaryDetails", label: "BeneficiaryDetails" },
     { id: "credit", label: "Credit/Debit " },
     { id: "GST/TDS", label: "GST/TDS " },
@@ -645,182 +661,171 @@ const WalletRow = React.memo(({ row }: any) => {
 
   return (
     <>
-    
-    <ReportRow>
-      {/* ---- ACTION ---- */}
-      <TableCell>
-        <Tooltip title="View transaction details">
-          <IconButton
-            size="small"
-            onClick={handleOpen}
-            sx={{
-              border: (t) => `1px solid ${t.palette.divider}`,
-              borderRadius: 1,
-            }}
-          >
-            <Iconify icon="solar:document-text-outline" width={17} />
-          </IconButton>
-        </Tooltip>
-      </TableCell>
-
-      {/* ---- DATE & TIME ---- */}
-      <TableCell sx={{ whiteSpace: "nowrap" }}>
-        <Typography sx={{ fontSize: 13.5 }}>
-          {fDateTime(row?.createdAt || row?.transaction?.createdAt)}
-        </Typography>
-      </TableCell>
-
-      {/* ---- REFERENCE ---- */}
-      <TableCell sx={{ whiteSpace: "nowrap" }}>
-        {row?.transaction?.clientRefId ? (
-          <Stack direction="row" alignItems="center" spacing={0.5}>
-            <Link
-              component="button"
-              onClick={handleOpen}
-              sx={{ fontSize: 13, fontWeight: 600 }}
-            >
-              {row?.transaction?.clientRefId}
-            </Link>
+      <ReportRow>
+        {/* ---- ACTION ---- */}
+        <TableCell>
+          <Tooltip title="View transaction details">
             <IconButton
-              sx={{ p: 0.25 }}
-              onClick={() => onCopy(row?.transaction?.clientRefId)}
+              size="small"
+              onClick={handleOpen}
+              sx={{
+                border: (t) => `1px solid ${t.palette.divider}`,
+                borderRadius: 1,
+              }}
             >
-              <Iconify icon="eva:copy-fill" width={15} />
+              <Iconify icon="solar:document-text-outline" width={17} />
             </IconButton>
-          </Stack>
-        ) : (
-          <Typography sx={{ fontSize: 13, color: "text.disabled" }}>
-            No Ref ID
-          </Typography>
-        )}
-        {row?.walletId && (
-          <Typography sx={{ fontSize: 11.5, color: "text.secondary" }}>
-            Wallet {row?.walletId}
-          </Typography>
-        )}
-      </TableCell>
+          </Tooltip>
+        </TableCell>
 
-      {/* ---- FROM ---- */}
-      <TableCell>
-        <Stack direction="row" alignItems="center" spacing={1}>
-          <CustomAvatar
-            name={row?.from?.id?.firstName || row?.from?.id?.email}
-            alt={row?.from?.id?.firstName}
-            src={row?.from?.id?.selfie?.[0]}
-            sx={{ width: 30, height: 30, fontSize: 12 }}
+        {/* ---- DATE & TIME ---- */}
+        <TableCell sx={{ whiteSpace: "nowrap" }}>
+          <Typography sx={{ fontSize: 13.5 }}>
+            {fDateTime(row?.createdAt || row?.transaction?.createdAt)}
+          </Typography>
+        </TableCell>
+
+        {/* ---- REFERENCE ---- */}
+        <TableCell sx={{ whiteSpace: "nowrap" }}>
+          {row?.transaction?.clientRefId ? (
+            <Stack direction="row" alignItems="center" spacing={0.5}>
+              <Link
+                component="button"
+                onClick={handleOpen}
+                sx={{ fontSize: 13, fontWeight: 600 }}
+              >
+                {row?.transaction?.clientRefId}
+              </Link>
+              <IconButton
+                sx={{ p: 0.25 }}
+                onClick={() => onCopy(row?.transaction?.clientRefId)}
+              >
+                <Iconify icon="eva:copy-fill" width={15} />
+              </IconButton>
+            </Stack>
+          ) : (
+            <Typography sx={{ fontSize: 13, color: "text.disabled" }}>
+              No Ref ID
+            </Typography>
+          )}
+          {row?.walletId && (
+            <Typography sx={{ fontSize: 11.5, color: "text.secondary" }}>
+              Wallet {row?.walletId}
+            </Typography>
+          )}
+        </TableCell>
+
+        {/* ---- FROM ---- */}
+        <TableCell>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <CustomAvatar
+              name={row?.from?.id?.firstName || row?.from?.id?.email}
+              alt={row?.from?.id?.firstName}
+              src={row?.from?.id?.selfie?.[0]}
+              sx={{ width: 30, height: 30, fontSize: 12 }}
+            />
+            <Stack sx={{ minWidth: 0 }}>
+              <Typography noWrap sx={{ fontSize: 13.5, fontWeight: 600 }}>
+                {row?.from?.id?.firstName || "ADMIN"} {row?.from?.id?.lastName}
+              </Typography>
+              <Typography
+                noWrap
+                sx={{ fontSize: 11.5, color: "text.secondary" }}
+              >
+                {row?.from?.id?.role
+                  ? sentenceCase(row?.from?.id?.role)
+                  : "Admin"}
+                {row?.from?.id?.userCode && ` (${row?.from?.id?.userCode})`}
+              </Typography>
+            </Stack>
+          </Stack>
+        </TableCell>
+
+        {/* ---- TO ---- */}
+        <TableCell>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <CustomAvatar
+              name={row?.to?.id?.firstName || row?.to?.id?.email}
+              alt={row?.to?.id?.firstName}
+              src={row?.to?.id?.selfie?.[0]}
+              sx={{ width: 30, height: 30, fontSize: 12 }}
+            />
+            <Stack sx={{ minWidth: 0 }}>
+              <Typography noWrap sx={{ fontSize: 13.5, fontWeight: 600 }}>
+                {row?.to?.id?.firstName || "ADMIN"} {row?.to?.id?.lastName}
+              </Typography>
+              <Typography
+                noWrap
+                sx={{ fontSize: 11.5, color: "text.secondary" }}
+              >
+                {row?.to?.id?.role === "API_User" ? "API User" : "Admin"}
+                {row?.to?.id?.userCode && ` (${row?.to?.id?.userCode})`}
+              </Typography>
+            </Stack>
+          </Stack>
+        </TableCell>
+
+        {/* ---- WALLET ---- */}
+        <TableCell sx={{ whiteSpace: "nowrap" }}>
+          <Chip
+            label={row?.to?.walletType || row?.from?.walletType || "-"}
+            size="small"
+            sx={{
+              height: 22,
+              fontSize: 11,
+              fontWeight: 700,
+              borderRadius: 0.75,
+            }}
           />
-          <Stack sx={{ minWidth: 0 }}>
-            <Typography noWrap sx={{ fontSize: 13.5, fontWeight: 600 }}>
-              {row?.from?.id?.firstName || "ADMIN"} {row?.from?.id?.lastName}
-            </Typography>
-            <Typography noWrap sx={{ fontSize: 11.5, color: "text.secondary" }}>
-              {row?.from?.id?.role ? sentenceCase(row?.from?.id?.role) : "Admin"}
-              {row?.from?.id?.userCode && ` (${row?.from?.id?.userCode})`}
-            </Typography>
-          </Stack>
-        </Stack>
-      </TableCell>
+        </TableCell>
 
-      {/* ---- TO ---- */}
-      <TableCell>
-        <Stack direction="row" alignItems="center" spacing={1}>
-          <CustomAvatar
-            name={row?.to?.id?.firstName || row?.to?.id?.email}
-            alt={row?.to?.id?.firstName}
-            src={row?.to?.id?.selfie?.[0]}
-            sx={{ width: 30, height: 30, fontSize: 12 }}
-          />
-          <Stack sx={{ minWidth: 0 }}>
-            <Typography noWrap sx={{ fontSize: 13.5, fontWeight: 600 }}>
-              {row?.to?.id?.firstName || "ADMIN"} {row?.to?.id?.lastName}
-            </Typography>
-            <Typography noWrap sx={{ fontSize: 11.5, color: "text.secondary" }}>
-              {row?.to?.id?.role === "agent"
-                ? "Agent"
-                : row?.to?.id?.role === "distributor"
-                ? "Distributor"
-                : row?.to?.id?.role === "m_distributor"
-                ? "Master Distributor"
-                : row?.to?.id?.role === "API_User"
-                ? "API User"
-                : "Admin"}
-              {row?.to?.id?.userCode && ` (${row?.to?.id?.userCode})`}
-            </Typography>
-          </Stack>
-        </Stack>
-      </TableCell>
-
-      {/* ---- WALLET ---- */}
-      <TableCell sx={{ whiteSpace: "nowrap" }}>
-        <Chip
-          label={row?.to?.walletType || row?.from?.walletType || "-"}
-          size="small"
-          sx={{
-            height: 22,
-            fontSize: 11,
-            fontWeight: 700,
-            borderRadius: 0.75,
-          }}
-        />
-      </TableCell>
-
-      {/* ---- AMOUNT ---- */}
-      <TableCell sx={{ whiteSpace: "nowrap" }}>
-        <Typography sx={{ fontSize: 14, fontWeight: 700 }}>
-          {fIndianCurrency(row?.to?.amount ?? row?.from?.amount) || "0"}
-        </Typography>
-      </TableCell>
-
-      {/* ---- FROM BALANCE ---- */}
-      <TableCell sx={{ whiteSpace: "nowrap" }}>
-        <Typography sx={{ fontSize: 12.5, color: "error.main", fontWeight: 600 }}>
-          -{fIndianCurrency(row?.from?.amount) || "0"}
-        </Typography>
-        <Typography sx={{ fontSize: 11.5, color: "text.secondary" }}>
-          {fIndianCurrency(
-            row?.to?.walletType === "MAIN"
-              ? row?.from?.oldMainWalletBalance
-              : row?.from?.oldAepsWalletBalance
-          ) || "0"}
-          {" / "}
-          {fIndianCurrency(
-            row?.to?.walletType === "MAIN"
-              ? row?.from?.newMainWalletBalance
-              : row?.from?.newAepsWalletBalance
-          ) || "0"}
-        </Typography>
-      </TableCell>
-
-      {/* ---- TO BALANCE ---- */}
-      <TableCell sx={{ whiteSpace: "nowrap" }}>
-        <Typography sx={{ fontSize: 12.5, color: "success.main", fontWeight: 600 }}>
-          +{fIndianCurrency(row?.to?.amount) || "0"}
-        </Typography>
-        <Typography sx={{ fontSize: 11.5, color: "text.secondary" }}>
-          {fIndianCurrency(
-            row?.to?.walletType === "MAIN"
-              ? row?.to?.oldMainWalletBalance
-              : row?.to?.oldAepsWalletBalance
-          ) || "0"}
-          {" / "}
-          {fIndianCurrency(
-            row?.to?.walletType === "MAIN"
-              ? row?.to?.newMainWalletBalance
-              : row?.to?.newAepsWalletBalance
-          ) || "0"}
-        </Typography>
-      </TableCell>
-
-      {/* ---- REASON ---- */}
-      <TableCell sx={{ maxWidth: 240 }}>
-        <Typography sx={{ fontSize: 13 }}>{row?.reason || "-"}</Typography>
-        {row?.remarks && (
-          <Typography sx={{ fontSize: 11.5, color: "text.secondary" }}>
-            {row?.remarks}
+        {/* ---- AMOUNT ---- */}
+        <TableCell sx={{ whiteSpace: "nowrap" }}>
+          <Typography sx={{ fontSize: 14, fontWeight: 700 }}>
+            {fIndianCurrency(row?.to?.amount ?? row?.from?.amount) || "0"}
           </Typography>
-        )}
-      </TableCell>
-    </ReportRow>
+        </TableCell>
+
+        {/* ---- FROM BALANCE ---- */}
+        <TableCell sx={{ whiteSpace: "nowrap" }}>
+          <Typography
+            sx={{ fontSize: 12.5, color: "error.main", fontWeight: 600 }}
+          >
+            -{fIndianCurrency(row?.from?.amount) || "0"}
+          </Typography>
+          {/* Main wallet only - the AEPS wallet is not surfaced in this
+              console, so the walletType branch is gone. */}
+          <Typography sx={{ fontSize: 11.5, color: "text.secondary" }}>
+            {fIndianCurrency(row?.from?.oldMainWalletBalance) || "0"}
+            {" / "}
+            {fIndianCurrency(row?.from?.newMainWalletBalance) || "0"}
+          </Typography>
+        </TableCell>
+
+        {/* ---- TO BALANCE ---- */}
+        <TableCell sx={{ whiteSpace: "nowrap" }}>
+          <Typography
+            sx={{ fontSize: 12.5, color: "success.main", fontWeight: 600 }}
+          >
+            +{fIndianCurrency(row?.to?.amount) || "0"}
+          </Typography>
+          <Typography sx={{ fontSize: 11.5, color: "text.secondary" }}>
+            {fIndianCurrency(row?.to?.oldMainWalletBalance) || "0"}
+            {" / "}
+            {fIndianCurrency(row?.to?.newMainWalletBalance) || "0"}
+          </Typography>
+        </TableCell>
+
+        {/* ---- REASON ---- */}
+        <TableCell sx={{ maxWidth: 240 }}>
+          <Typography sx={{ fontSize: 13 }}>{row?.reason || "-"}</Typography>
+          {row?.remarks && (
+            <Typography sx={{ fontSize: 11.5, color: "text.secondary" }}>
+              {row?.remarks}
+            </Typography>
+          )}
+        </TableCell>
+      </ReportRow>
 
       {/* Modal unchanged */}
       <Modal open={open} onClose={handleClose}>
@@ -830,396 +835,326 @@ const WalletRow = React.memo(({ row }: any) => {
               <TableHeadCustom headLabel={tableLabels} />
               <TableBody>
                 <TableRow key={row?._id}>
-        <StyledTableCell>
-          {row?.transaction?.clientRefId && (
-            <Stack flexDirection={"row"}>
-              <Link
-                variant="body2"
-                noWrap
-                component="button"
-                onClick={handleOpen}
-              >
-                {row?.transaction?.clientRefId}
-              </Link>
-              <IconButton
-                sx={{ p: 0.5 }}
-                onClick={() => onCopy(row?.transaction?.clientRefId)}
-              >
-                <Iconify icon="eva:copy-fill" />
-              </IconButton>
-            </Stack>
-          )}
-
-          <Typography variant="body2">
-            Wallet Id : {row?.walletId}
-            <IconButton sx={{ p: 0.5 }} onClick={() => onCopy(row?.walletId)}>
-              <Iconify icon="eva:copy-fill" />
-            </IconButton>
-          </Typography>
-
-          <Typography variant="body2" color={"text.secondary"}>
-            {row?.createdAt
-              ? fDateTime(row?.createdAt)
-              : fDateTime(row?.transaction?.createdAt)}
-          </Typography>
-        </StyledTableCell>
-
-        {/* From detail */}
-        <StyledTableCell>
-          <Stack flexDirection={"row"} gap={1}>
-            <CustomAvatar
-              name={
-                row?.from?.id?.firstName
-                  ? row?.from?.id?.firstName
-                  : row?.from?.id?.email
-              }
-              alt={row?.from?.id?.firstName}
-              src={row?.from?.id?.selfie && row?.from?.id?.selfie[0]}
-            />
-            <Stack>
-              <Typography noWrap variant="body2">
-                {row?.from?.id?.firstName || "ADMIN"} {row?.from?.id?.lastName}
-              </Typography>
-              <Typography noWrap variant="body2" color={"text.secondary"}>
-                {sentenceCase(row?.from?.id?.role)}
-                {row?.from?.id?.userCode && `(${row?.from?.id?.userCode})`}
-              </Typography>
-              <Label
-                variant="soft"
-                color={row?.from?.walletType == "MAIN" ? "primary" : "warning"}
-                width={"fit-content"}
-              >
-                Wallet : {row?.from?.walletType}
-              </Label>
-            </Stack>
-          </Stack>
-        </StyledTableCell>
-
-        {/* From Opening Closing */}
-        <StyledTableCell>
-          <Stack direction={"row"} justifyContent={"space-between"}>
-            <Typography variant="body2">Opening:</Typography>
-            <Typography variant="body2">
-              {fIndianCurrency(
-                row?.to?.walletType == "MAIN"
-                  ? row?.from?.oldMainWalletBalance
-                  : row?.from?.oldAepsWalletBalance
-              ) || ""}
-            </Typography>
-          </Stack>
-          <Stack direction={"row"} justifyContent={"space-between"}>
-            <Typography variant="body2">Amount :</Typography>
-            <Typography variant="body2" color={"error"}>
-              -{fIndianCurrency(row?.from?.amount) || "0"}
-            </Typography>
-          </Stack>
-          <Stack direction={"row"} justifyContent={"space-between"}>
-            <Typography variant="body2">Closing :</Typography>
-            <Typography variant="body2">
-              {fIndianCurrency(
-                row?.to?.walletType == "MAIN"
-                  ? row?.from?.newMainWalletBalance
-                  : row?.from?.newAepsWalletBalance
-              ) || "0"}
-            </Typography>
-          </Stack>
-        </StyledTableCell>
-
-        {/* to user */}
-        <StyledTableCell>
-          <Stack flexDirection={"row"} gap={1} alignItems={"center"}>
-            <CustomAvatar
-              name={
-                row?.to?.id?.firstName
-                  ? row?.to?.id?.firstName
-                  : row?.to?.id?.email
-              }
-              alt={row?.to?.id?.firstName}
-              src={row?.to?.id?.selfie && row?.to?.id?.selfie[0]}
-            />
-            <Stack>
-              <Typography noWrap variant="body2">
-                {row?.to?.id?.firstName} {row?.to?.id?.lastName}
-              </Typography>
-              <Typography noWrap variant="body2">
-                {row?.to?.id?.role === "agent"
-                  ? "Agent"
-                  : row?.to?.id?.role === "distributor"
-                  ? "Distributor"
-                  : row?.to?.id?.role === "m_distributor"
-                  ? "Master Distributor"
-                  : row?.to?.id?.role === "API_User"
-                  ? "API User"
-                  : "ADMIN"}
-              </Typography>
-              <Typography noWrap variant="body2">
-                {row?.to?.id?.userCode}
-              </Typography>
-              <Label
-                variant="soft"
-                color={row?.to?.walletType == "MAIN" ? "primary" : "warning"}
-                width={"fit-content"}
-              >
-                Wallet : {row?.to?.walletType}
-              </Label>
-            </Stack>
-          </Stack>
-        </StyledTableCell>
-
-        {/* to opening closing */}
-        <StyledTableCell>
-          <Stack direction={"row"} justifyContent={"space-between"}>
-            <Typography variant="body2">Opening:</Typography>
-            <Typography variant="body2">
-              {fIndianCurrency(
-                row?.to?.walletType == "MAIN"
-                  ? row?.to?.oldMainWalletBalance
-                  : row?.to?.oldAepsWalletBalance
-              ) || "0"}
-            </Typography>
-          </Stack>
-          <Stack direction={"row"} justifyContent={"space-between"}>
-            <Typography variant="body2">Amount :</Typography>
-            <Typography variant="body2" color={"success.main"}>
-              +{fIndianCurrency(row?.to?.amount) || "0"}
-            </Typography>
-          </Stack>
-          <Stack direction={"row"} justifyContent={"space-between"}>
-            <Typography variant="body2">Closing :</Typography>
-            <Typography variant="body2">
-              {fIndianCurrency(
-                row?.to?.walletType == "MAIN"
-                  ? row?.to?.newMainWalletBalance
-                  : row?.to?.newAepsWalletBalance
-              ) || "0"}
-            </Typography>
-          </Stack>
-        </StyledTableCell>
-
-        <StyledTableCell>
-          <Typography>Reason: {row?.reason || "-"}</Typography>
-          <Typography>Remarks: {row?.remarks || "-"}</Typography>
-        </StyledTableCell>
-        <Modal
-          open={open}
-          onClose={handleClose}
-          aria-labelledby="modal-modal-title"
-          aria-describedby="modal-modal-description"
-        >
-          <Box sx={style}>
-            <Scrollbar sx={{ minWidth: 720 }}>
-              <Table size="small">
-                <TableHeadCustom headLabel={tableLabels} />
-
-                <TableBody>
-                  <TableRow key={row._id}>
-                    <TableCell>
-                      <Typography noWrap variant="body2">
-                        <strong> Product:</strong>
-                        {row?.transaction?.productName || "-"}
-                      </Typography>
-                      <Typography noWrap variant="body2">
-                        <strong> Transaction Type: </strong>
-                        {row?.transaction?.transactionType || "0"}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography noWrap variant="body2">
-                        <strong> Opening: </strong>
-                        {fIndianCurrency(
-                          row?.transaction?.agentDetails?.oldMainWalletBalance
-                        ) || "0"}
-                      </Typography>
-                      <Typography noWrap variant="body2">
-                        <strong> Closing: </strong>
-                        {fIndianCurrency(
-                          row?.transaction?.agentDetails?.newMainWalletBalance
-                        ) || "0"}
-                      </Typography>
-                      <Typography noWrap variant="body2">
-                        <strong> Commission: </strong>
-                        {fIndianCurrency(
-                          row?.transaction?.agentDetails?.commissionAmount
-                        ) || "0"}
-                      </Typography>
-                      <Typography noWrap variant="body2">
-                        <strong> Credit: </strong>
-                        {fIndianCurrency(
-                          row?.transaction?.agentDetails?.creditedAmount
-                        ) || "0"}
-                      </Typography>
-                      <Typography noWrap variant="body2">
-                        <strong> TDS: </strong>
-                        {fIndianCurrency(
-                          row?.transaction?.agentDetails?.TDSAmount
-                        ) || "0"}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography noWrap variant="body2">
-                        <strong> Opening: </strong>
-                        {fIndianCurrency(
-                          row?.transaction?.distributorDetails
-                            ?.oldMainWalletBalance
-                        ) || "0"}
-                      </Typography>
-                      <Typography noWrap variant="body2">
-                        <strong> Closing: </strong>
-                        {fIndianCurrency(
-                          row?.transaction?.distributorDetails
-                            ?.newMainWalletBalance
-                        ) || "0"}
-                      </Typography>
-                      <Typography noWrap variant="body2">
-                        <strong> Commission: </strong>
-                        {fIndianCurrency(
-                          row?.transaction?.distributorDetails?.commissionAmount
-                        ) || "0"}
-                      </Typography>
-                      <Typography noWrap variant="body2">
-                        <strong> Credit: </strong>
-                        {fIndianCurrency(
-                          row?.transaction?.distributorDetails?.creditedAmount
-                        ) || "0"}
-                      </Typography>
-                      <Typography noWrap variant="body2">
-                        <strong> TDS: </strong>
-                        {fIndianCurrency(
-                          row?.transaction?.distributorDetails?.TDSAmount
-                        ) || "0"}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography noWrap variant="body2">
-                        <strong> Opening: </strong>
-                        {fIndianCurrency(
-                          row?.transaction?.masterDistributorDetails
-                            ?.oldMainWalletBalance
-                        ) || "0"}
-                      </Typography>
-                      <Typography noWrap variant="body2">
-                        <strong> Closing: </strong>
-                        {fIndianCurrency(
-                          row?.transaction?.masterDistributorDetails
-                            ?.newMainWalletBalance
-                        ) || "0"}
-                      </Typography>
-                      <Typography noWrap variant="body2">
-                        <strong> Commission: </strong>
-                        {fIndianCurrency(
-                          row?.transaction?.masterDistributorDetails
-                            ?.commissionAmount
-                        ) || "0"}
-                      </Typography>
-                      <Typography noWrap variant="body2">
-                        <strong> Credit: </strong>
-                        {fIndianCurrency(
-                          row?.transaction?.masterDistributorDetails
-                            ?.creditedAmount
-                        ) || "0"}
-                      </Typography>
-                      <Typography noWrap variant="body2">
-                        <strong> TDS: </strong>
-                        {fIndianCurrency(
-                          row?.transaction?.masterDistributorDetails?.TDSAmount
-                        ) || "0"}
-                      </Typography>
-                    </TableCell>
-
-                    <TableCell>
-                      <Typography noWrap variant="body2">
-                        <strong> Bank: </strong>
-                        {row?.transaction?.moneyTransferBeneficiaryDetails
-                          ?.bankName || "0"}
-                      </Typography>
-                      <Typography noWrap variant="body2">
-                        <strong> Account Number: </strong>
-                        {row?.transaction?.moneyTransferBeneficiaryDetails
-                          ?.accountNumber || "0"}
-                      </Typography>
-                      <Typography noWrap variant="body2">
-                        <strong> Beneficiary Name: </strong>
-                        {row?.transaction?.moneyTransferBeneficiaryDetails
-                          ?.beneName || "0"}
-                      </Typography>
-                      <Typography noWrap variant="body2">
-                        <strong> IFSC: </strong>
-                        {row?.transaction?.moneyTransferBeneficiaryDetails
-                          ?.ifsc || "0"}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" noWrap>
-                        <strong> Credit: </strong> {row?.transaction?.credit}
-                      </Typography>
-                      <Typography variant="body2" noWrap>
-                        <strong> Debit: </strong> {row?.transaction?.debit}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Stack gap={0.5} direction="row">
-                        <Typography variant="subtitle2"> GST: </Typography>
-                        <Typography variant="body2">
-                          {fIndianCurrency(row?.transaction?.GST || "0")}
-                        </Typography>
+                  <StyledTableCell>
+                    {row?.transaction?.clientRefId && (
+                      <Stack flexDirection={"row"}>
+                        <Link
+                          variant="body2"
+                          noWrap
+                          component="button"
+                          onClick={handleOpen}
+                        >
+                          {row?.transaction?.clientRefId}
+                        </Link>
+                        <IconButton
+                          sx={{ p: 0.5 }}
+                          onClick={() => onCopy(row?.transaction?.clientRefId)}
+                        >
+                          <Iconify icon="eva:copy-fill" />
+                        </IconButton>
                       </Stack>
+                    )}
 
-                      <Stack gap={0.5} direction="row">
-                        <Typography variant="subtitle2"> TDS: </Typography>
-                        <Typography variant="body2">
-                          {fIndianCurrency(row?.transaction?.TDS || "0")}
-                        </Typography>
-                      </Stack>
-                    </TableCell>
-                    <TableCell>
-                      <Typography>{row?.transaction?.mobileNumber}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Label
-                        variant="soft"
-                        color={
-                          (row?.transaction?.status === "failed" && "error") ||
-                          ((row?.transaction?.status === "pending" ||
-                            row?.transaction?.status === "in_process") &&
-                            "warning") ||
-                          "success"
-                        }
-                        sx={{ textTransform: "capitalize" }}
+                    <Typography variant="body2">
+                      Wallet Id : {row?.walletId}
+                      <IconButton
+                        sx={{ p: 0.5 }}
+                        onClick={() => onCopy(row?.walletId)}
                       >
-                        {row?.transaction?.status
-                          ? sentenceCase(row?.transaction?.status)
-                          : ""}
-                      </Label>
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </Scrollbar>
-            <Button
-              variant="contained"
-              onClick={handleClose}
-              sx={{
-                mt: 5,
-                ml: 1,
-              }}
-            >
-              Close
-            </Button>
-          </Box>
-        </Modal>
-      </TableRow>
+                        <Iconify icon="eva:copy-fill" />
+                      </IconButton>
+                    </Typography>
+
+                    <Typography variant="body2" color={"text.secondary"}>
+                      {row?.createdAt
+                        ? fDateTime(row?.createdAt)
+                        : fDateTime(row?.transaction?.createdAt)}
+                    </Typography>
+                  </StyledTableCell>
+
+                  {/* From detail */}
+                  <StyledTableCell>
+                    <Stack flexDirection={"row"} gap={1}>
+                      <CustomAvatar
+                        name={
+                          row?.from?.id?.firstName
+                            ? row?.from?.id?.firstName
+                            : row?.from?.id?.email
+                        }
+                        alt={row?.from?.id?.firstName}
+                        src={row?.from?.id?.selfie && row?.from?.id?.selfie[0]}
+                      />
+                      <Stack>
+                        <Typography noWrap variant="body2">
+                          {row?.from?.id?.firstName || "ADMIN"}{" "}
+                          {row?.from?.id?.lastName}
+                        </Typography>
+                        <Typography
+                          noWrap
+                          variant="body2"
+                          color={"text.secondary"}
+                        >
+                          {sentenceCase(row?.from?.id?.role)}
+                          {row?.from?.id?.userCode &&
+                            `(${row?.from?.id?.userCode})`}
+                        </Typography>
+                        <Label
+                          variant="soft"
+                          color={
+                            row?.from?.walletType == "MAIN"
+                              ? "primary"
+                              : "warning"
+                          }
+                          width={"fit-content"}
+                        >
+                          Wallet : {row?.from?.walletType}
+                        </Label>
+                      </Stack>
+                    </Stack>
+                  </StyledTableCell>
+
+                  {/* From Opening Closing */}
+                  <StyledTableCell>
+                    <Stack direction={"row"} justifyContent={"space-between"}>
+                      <Typography variant="body2">Opening:</Typography>
+                      <Typography variant="body2">
+                        {fIndianCurrency(row?.from?.oldMainWalletBalance) || ""}
+                      </Typography>
+                    </Stack>
+                    <Stack direction={"row"} justifyContent={"space-between"}>
+                      <Typography variant="body2">Amount :</Typography>
+                      <Typography variant="body2" color={"error"}>
+                        -{fIndianCurrency(row?.from?.amount) || "0"}
+                      </Typography>
+                    </Stack>
+                    <Stack direction={"row"} justifyContent={"space-between"}>
+                      <Typography variant="body2">Closing :</Typography>
+                      <Typography variant="body2">
+                        {fIndianCurrency(row?.from?.newMainWalletBalance) ||
+                          "0"}
+                      </Typography>
+                    </Stack>
+                  </StyledTableCell>
+
+                  {/* to user */}
+                  <StyledTableCell>
+                    <Stack flexDirection={"row"} gap={1} alignItems={"center"}>
+                      <CustomAvatar
+                        name={
+                          row?.to?.id?.firstName
+                            ? row?.to?.id?.firstName
+                            : row?.to?.id?.email
+                        }
+                        alt={row?.to?.id?.firstName}
+                        src={row?.to?.id?.selfie && row?.to?.id?.selfie[0]}
+                      />
+                      <Stack>
+                        <Typography noWrap variant="body2">
+                          {row?.to?.id?.firstName} {row?.to?.id?.lastName}
+                        </Typography>
+                        <Typography noWrap variant="body2">
+                          {row?.to?.id?.role === "API_User"
+                            ? "API User"
+                            : "ADMIN"}
+                        </Typography>
+                        <Typography noWrap variant="body2">
+                          {row?.to?.id?.userCode}
+                        </Typography>
+                        <Label
+                          variant="soft"
+                          color={
+                            row?.to?.walletType == "MAIN"
+                              ? "primary"
+                              : "warning"
+                          }
+                          width={"fit-content"}
+                        >
+                          Wallet : {row?.to?.walletType}
+                        </Label>
+                      </Stack>
+                    </Stack>
+                  </StyledTableCell>
+
+                  {/* to opening closing */}
+                  <StyledTableCell>
+                    <Stack direction={"row"} justifyContent={"space-between"}>
+                      <Typography variant="body2">Opening:</Typography>
+                      <Typography variant="body2">
+                        {fIndianCurrency(row?.to?.oldMainWalletBalance) || "0"}
+                      </Typography>
+                    </Stack>
+                    <Stack direction={"row"} justifyContent={"space-between"}>
+                      <Typography variant="body2">Amount :</Typography>
+                      <Typography variant="body2" color={"success.main"}>
+                        +{fIndianCurrency(row?.to?.amount) || "0"}
+                      </Typography>
+                    </Stack>
+                    <Stack direction={"row"} justifyContent={"space-between"}>
+                      <Typography variant="body2">Closing :</Typography>
+                      <Typography variant="body2">
+                        {fIndianCurrency(row?.to?.newMainWalletBalance) || "0"}
+                      </Typography>
+                    </Stack>
+                  </StyledTableCell>
+
+                  <StyledTableCell>
+                    <Typography>Reason: {row?.reason || "-"}</Typography>
+                    <Typography>Remarks: {row?.remarks || "-"}</Typography>
+                  </StyledTableCell>
+                  <Modal
+                    open={open}
+                    onClose={handleClose}
+                    aria-labelledby="modal-modal-title"
+                    aria-describedby="modal-modal-description"
+                  >
+                    <Box sx={style}>
+                      <Scrollbar sx={{ minWidth: 720 }}>
+                        <Table size="small">
+                          <TableHeadCustom headLabel={tableLabels} />
+
+                          <TableBody>
+                            <TableRow key={row._id}>
+                              <TableCell>
+                                <Typography noWrap variant="body2">
+                                  <strong> Product:</strong>
+                                  {row?.transaction?.productName || "-"}
+                                </Typography>
+                                <Typography noWrap variant="body2">
+                                  <strong> Transaction Type: </strong>
+                                  {row?.transaction?.transactionType || "0"}
+                                </Typography>
+                              </TableCell>
+                              <TableCell>
+                                <Typography noWrap variant="body2">
+                                  <strong> Opening: </strong>
+                                  {fIndianCurrency(
+                                    row?.transaction?.partnerDetails
+                                      ?.oldMainWalletBalance
+                                  ) || "0"}
+                                </Typography>
+                                <Typography noWrap variant="body2">
+                                  <strong> Closing: </strong>
+                                  {fIndianCurrency(
+                                    row?.transaction?.partnerDetails
+                                      ?.newMainWalletBalance
+                                  ) || "0"}
+                                </Typography>
+                              </TableCell>
+
+                              <TableCell>
+                                <Typography noWrap variant="body2">
+                                  <strong> Bank: </strong>
+                                  {row?.transaction
+                                    ?.moneyTransferBeneficiaryDetails
+                                    ?.bankName || "0"}
+                                </Typography>
+                                <Typography noWrap variant="body2">
+                                  <strong> Account Number: </strong>
+                                  {row?.transaction
+                                    ?.moneyTransferBeneficiaryDetails
+                                    ?.accountNumber || "0"}
+                                </Typography>
+                                <Typography noWrap variant="body2">
+                                  <strong> Beneficiary Name: </strong>
+                                  {row?.transaction
+                                    ?.moneyTransferBeneficiaryDetails
+                                    ?.beneName || "0"}
+                                </Typography>
+                                <Typography noWrap variant="body2">
+                                  <strong> IFSC: </strong>
+                                  {row?.transaction
+                                    ?.moneyTransferBeneficiaryDetails?.ifsc ||
+                                    "0"}
+                                </Typography>
+                              </TableCell>
+                              <TableCell>
+                                <Typography variant="body2" noWrap>
+                                  <strong> Credit: </strong>{" "}
+                                  {row?.transaction?.credit}
+                                </Typography>
+                                <Typography variant="body2" noWrap>
+                                  <strong> Debit: </strong>{" "}
+                                  {row?.transaction?.debit}
+                                </Typography>
+                              </TableCell>
+                              <TableCell>
+                                <Stack gap={0.5} direction="row">
+                                  <Typography variant="subtitle2">
+                                    {" "}
+                                    GST:{" "}
+                                  </Typography>
+                                  <Typography variant="body2">
+                                    {fIndianCurrency(
+                                      row?.transaction?.GST || "0"
+                                    )}
+                                  </Typography>
+                                </Stack>
+
+                                <Stack gap={0.5} direction="row">
+                                  <Typography variant="subtitle2">
+                                    {" "}
+                                    TDS:{" "}
+                                  </Typography>
+                                  <Typography variant="body2">
+                                    {fIndianCurrency(
+                                      row?.transaction?.TDS || "0"
+                                    )}
+                                  </Typography>
+                                </Stack>
+                              </TableCell>
+                              <TableCell>
+                                <Typography>
+                                  {row?.transaction?.mobileNumber}
+                                </Typography>
+                              </TableCell>
+                              <TableCell>
+                                <Label
+                                  variant="soft"
+                                  color={
+                                    (row?.transaction?.status === "failed" &&
+                                      "error") ||
+                                    ((row?.transaction?.status === "pending" ||
+                                      row?.transaction?.status ===
+                                        "in_process") &&
+                                      "warning") ||
+                                    "success"
+                                  }
+                                  sx={{ textTransform: "capitalize" }}
+                                >
+                                  {row?.transaction?.status
+                                    ? sentenceCase(row?.transaction?.status)
+                                    : ""}
+                                </Label>
+                              </TableCell>
+                            </TableRow>
+                          </TableBody>
+                        </Table>
+                      </Scrollbar>
+                      <Button
+                        variant="contained"
+                        onClick={handleClose}
+                        sx={{
+                          mt: 5,
+                          ml: 1,
+                        }}
+                      >
+                        Close
+                      </Button>
+                    </Box>
+                  </Modal>
+                </TableRow>
               </TableBody>
             </Table>
           </Scrollbar>
-          <Button variant="contained" onClick={handleClose} sx={{ mt: 5, ml: 1 }}>
+          <Button
+            variant="contained"
+            onClick={handleClose}
+            sx={{ mt: 5, ml: 1 }}
+          >
             Close
           </Button>
         </Box>
       </Modal>
-
- 
-   
-      
     </>
   );
 });

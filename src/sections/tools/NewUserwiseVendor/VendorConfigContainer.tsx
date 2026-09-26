@@ -26,10 +26,12 @@ import { Service, vendorListUrl } from "./ServiceList";
 import VendorRoutingDialog from "./VendorConfigCard";
 import {
   getServiceReference,
+  prefetchRouting,
   getRouting,
   invalidateRouting,
   runPool,
 } from "./routingCache";
+import VendorWarnings from "src/components/VendorWarnings";
 
 /** How many routing lookups may be in flight at once. */
 const ROUTING_CONCURRENCY = 6;
@@ -100,7 +102,11 @@ interface Props {
 }
 
 /* Shared by the table and its skeleton so the header does not shift. */
-const ROUTING_COLUMNS: { id: string; label: string; align?: "left" | "center" | "right" }[] = [
+const ROUTING_COLUMNS: {
+  id: string;
+  label: string;
+  align?: "left" | "center" | "right";
+}[] = [
   { id: "product", label: "Service" },
   { id: "neoNetwork", label: "Neo Network" },
   { id: "directAgent", label: "Direct Agent" },
@@ -133,6 +139,8 @@ export default function VendorConfigContainer({ userId, service }: Props) {
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
   const [vendors, setVendors] = useState<Vendor[]>([]);
+  /** Item 3b: what the dropdown endpoint could not resolve. */
+  const [vendorWarnings, setVendorWarnings] = useState<string[]>([]);
   const [rows, setRows] = useState<RoutingRow[]>([]);
   const [editing, setEditing] = useState<RoutingRow | null>(null);
 
@@ -173,7 +181,7 @@ export default function VendorConfigContainer({ userId, service }: Props) {
       setFailed(false);
 
       try {
-        const { catalogue, products } = await getServiceReference(
+        const { catalogue, products, warnings } = await getServiceReference(
           Api,
           categoryId,
           vendorListUrl(categoryName)
@@ -182,6 +190,7 @@ export default function VendorConfigContainer({ userId, service }: Props) {
         if (!isCurrent()) return;
 
         setVendors(catalogue);
+        setVendorWarnings(warnings);
 
         /* Stage 1 - structure on screen straight away. */
         const skeletonRows: RoutingRow[] = products.map((product: any) => ({
@@ -198,6 +207,18 @@ export default function VendorConfigContainer({ userId, service }: Props) {
         setLoading(false);
 
         if (!products.length) return;
+
+        /* Stage 3: one batch request resolves routing for every product and
+           seeds the cache, so the pool below turns into cache hits instead of
+           one HTTP request per product. Best-effort - anything it misses falls
+           through to the per-product lookup unchanged. */
+        await prefetchRouting(
+          Api,
+          userId,
+          products.map((product: any) => product._id)
+        );
+
+        if (!isCurrent()) return;
 
         /* Stage 2 - fill each row in as its lookup returns. */
         await runPool(products, ROUTING_CONCURRENCY, async (product: any) => {
@@ -239,7 +260,10 @@ export default function VendorConfigContainer({ userId, service }: Props) {
                         ? "partial"
                         : "unrouted",
                     updatedBy: data?.createdBy
-                      ? { email: data.createdBy.email, date: data.createdBy.date }
+                      ? {
+                          email: data.createdBy.email,
+                          date: data.createdBy.date,
+                        }
                       : undefined,
                     pending: false,
                   }
@@ -252,6 +276,7 @@ export default function VendorConfigContainer({ userId, service }: Props) {
         if (!isCurrent()) return;
         setRows([]);
         setVendors([]);
+        setVendorWarnings([]);
         setFailed(true);
         setLoading(false);
       }
@@ -310,6 +335,8 @@ export default function VendorConfigContainer({ userId, service }: Props) {
 
   return (
     <>
+      <VendorWarnings warnings={vendorWarnings} sx={{ mb: 1 }} />
+
       <StatGrid>
         <StatCard
           label="Active Routes"

@@ -27,6 +27,10 @@ import {
 import EditIcon from "@mui/icons-material/EditOutlined";
 import SaveIcon from "@mui/icons-material/SaveOutlined";
 import { VendorLane, VendorValue } from "./VendorLane";
+import { isOk, notifyFailure } from "src/utils/apiResult";
+import VendorWarnings, {
+  vendorWarningsOf,
+} from "src/components/VendorWarnings";
 
 // ----------------------------------------------------------------------
 
@@ -71,6 +75,7 @@ export default function VendorSwitch() {
   const CategoryContaxt: any = useContext(CategoryContext);
   const { enqueueSnackbar } = useSnackbar();
   const [isLoading, setIsLoading] = useState(false);
+  const [vendorWarnings, setVendorWarnings] = useState<string[]>([]);
   const [productId, setProductId] = useState("");
   const [isEdit, setIsEdit] = useState(false);
 
@@ -135,20 +140,20 @@ export default function VendorSwitch() {
               "",
               token
             ).then((Response: any) => {
-              if (Response?.status == 200) {
-                if (Response.data.code == 200) {
-                  setValue(
-                    "neoNetworkVendor",
-                    Response.data.data.neoNetworkVendor
-                  );
-                  setValue("apiUserVendor", Response.data.data.apiUserVendor);
-                  setValue(
-                    "directAgentVendor",
-                    Response.data.data.directAgentVendor
-                  );
+              if (isOk(Response)) {
+                setValue(
+                  "neoNetworkVendor",
+                  Response.data.data.neoNetworkVendor
+                );
+                setValue("apiUserVendor", Response.data.data.apiUserVendor);
+                setValue(
+                  "directAgentVendor",
+                  Response.data.data.directAgentVendor
+                );
 
-                  MTVendors();
-                }
+                MTVendors();
+              } else {
+                notifyFailure(enqueueSnackbar, Response);
               }
             });
           }
@@ -163,34 +168,34 @@ export default function VendorSwitch() {
     let token = localStorage.getItem("token");
     await Api(`product/moneyTransfer_vendor_list`, "GET", "", token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setValue("moneyTransferVendors", Response.data.data);
-            Response.data.data.map((item: any) => {
-              if (item.vendorName == "DECENTRO") {
-                item.bankName.map((row: any, index: number) => {
-                  row.isBankAccount &&
-                    setValue("decentroDefaulBank", {
-                      accountNumber: item.bankAccounts[index].accountNumber,
-                      bankName: item.bankName[index].name,
-                    });
-                });
-              }
-              if (item.vendorName == "RAZORPAY") {
-                item.bankAccounts.map((row: any, index: number) => {
-                  row.isAccountActive &&
-                    setValue("razorpayDefaulBank", {
-                      accountNumber: item.bankAccounts[index].accountNumber,
-                      bankName: item.bankName[index].name,
-                    });
-                });
-              }
-            });
-          }
-          setIsLoading(false);
+        if (isOk(Response)) {
+          setValue("moneyTransferVendors", Response.data.data);
+          // Item 3b: `warnings` sits beside `data`, not inside it.
+          setVendorWarnings(vendorWarningsOf(Response));
+          Response.data.data.map((item: any) => {
+            if (item.vendorName == "DECENTRO") {
+              item.bankName.map((row: any, index: number) => {
+                row.isBankAccount &&
+                  setValue("decentroDefaulBank", {
+                    accountNumber: item.bankAccounts[index].accountNumber,
+                    bankName: item.bankName[index].name,
+                  });
+              });
+            }
+            if (item.vendorName == "RAZORPAY") {
+              item.bankAccounts.map((row: any, index: number) => {
+                row.isAccountActive &&
+                  setValue("razorpayDefaulBank", {
+                    accountNumber: item.bankAccounts[index].accountNumber,
+                    bankName: item.bankName[index].name,
+                  });
+              });
+            }
+          });
         } else {
-          setIsLoading(false);
+          notifyFailure(enqueueSnackbar, Response);
         }
+        setIsLoading(false);
       }
     );
   };
@@ -209,12 +214,12 @@ export default function VendorSwitch() {
       };
       await Api("product/setActiveVendor", "POST", body, token).then(
         (Response: any) => {
-          if (Response?.status == 200) {
-            if (Response.data.code == 200) {
-              enqueueSnackbar(Response.data.message);
-              setIsEdit(!isEdit);
-              getProductlist(CategoryContaxt?._id);
-            }
+          if (isOk(Response)) {
+            enqueueSnackbar(Response.data.message);
+            setIsEdit(!isEdit);
+            getProductlist(CategoryContaxt?._id);
+          } else {
+            notifyFailure(enqueueSnackbar, Response);
           }
         }
       );
@@ -227,6 +232,7 @@ export default function VendorSwitch() {
 
   return (
     <>
+      <VendorWarnings warnings={vendorWarnings} />
       <Helmet>
         <title>Vendor Switch | Shampay Admin</title>
       </Helmet>
@@ -275,7 +281,9 @@ export default function VendorSwitch() {
                     ))}
                   </RHFSelect>
                 ) : (
-                  <VendorValue value={getValues("neoNetworkVendor.vendorName")} />
+                  <VendorValue
+                    value={getValues("neoNetworkVendor.vendorName")}
+                  />
                 )}
               </VendorLane>
 
@@ -300,7 +308,9 @@ export default function VendorSwitch() {
                     ))}
                   </RHFSelect>
                 ) : (
-                  <VendorValue value={getValues("directAgentVendor.vendorName")} />
+                  <VendorValue
+                    value={getValues("directAgentVendor.vendorName")}
+                  />
                 )}
               </VendorLane>
 
@@ -346,7 +356,9 @@ export default function VendorSwitch() {
                 ) : (
                   <VendorValue
                     value={
-                      getValues("vendorMode") === "GLOBAL" ? "Global" : "User Wise"
+                      getValues("vendorMode") === "GLOBAL"
+                        ? "Global"
+                        : "User Wise"
                     }
                   />
                 )}
@@ -442,12 +454,12 @@ const VendorBanks = ({ element, Vendors, updateDetail }: any) => {
             };
       await Api("product/updateVendorBankDetails", "POST", body, token).then(
         (Response: any) => {
-          if (Response?.status == 200) {
-            if (Response.data.code == 200) {
-              enqueueSnackbar(Response.data.message);
-              updateDetail();
-              setEdit(!edit);
-            }
+          if (isOk(Response)) {
+            enqueueSnackbar(Response.data.message);
+            updateDetail();
+            setEdit(!edit);
+          } else {
+            notifyFailure(enqueueSnackbar, Response);
           }
         }
       );

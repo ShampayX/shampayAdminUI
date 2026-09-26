@@ -34,6 +34,8 @@ import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { fDate, fDateFormatForApi, fDateTime } from "src/utils/formatTime";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { useSnackbar } from "src/components/snackbar";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 // ----------------------------------------------------------------------
 type FormValuesProps = {
@@ -52,6 +54,7 @@ type FormValuesProps = {
 };
 
 export default function NeoNetwork() {
+  const { enqueueSnackbar } = useSnackbar();
   const { Api } = useAuthContext();
   const [appdata, setAppdata] = useState([]);
   const [currentPage, setCurrentPage] = useState<any>(1);
@@ -132,15 +135,13 @@ export default function NeoNetwork() {
     };
     await Api(`admin/get_ApprovedList`, "POST", body, token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setAppdata(Response.data.data);
-            setTxnCount(Response.data.count);
-          }
-          setIsLoading(false);
+        if (isOk(Response)) {
+          setAppdata(Response.data.data);
+          setTxnCount(Response.data.count);
         } else {
-          setIsLoading(false);
+          notifyFailure(enqueueSnackbar, Response);
         }
+        setIsLoading(false);
       }
     );
   };
@@ -154,11 +155,10 @@ export default function NeoNetwork() {
     };
     {
       Api(`admin/search_user`, "POST", body, "").then((Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setUserList(Response.data.data);
-          } else {
-          }
+        if (isOk(Response)) {
+          setUserList(Response.data.data);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       });
     }
@@ -176,9 +176,8 @@ export default function NeoNetwork() {
               sx: { textTransform: "capitalize" },
             }}
           >
-            <MenuItem value="agent">Agent</MenuItem>
-            <MenuItem value="distributor">Distributor</MenuItem>
-            <MenuItem value="m_distributor">Master Distributor</MenuItem>
+            {/* Item 3d: roles are only Admin and API_User now. */}
+            <MenuItem value="API_User">API User</MenuItem>
           </RHFSelect>
           {(watch("searchBy") == "agent" ||
             watch("searchBy") == "distributor" ||

@@ -11,6 +11,12 @@ import ContentPasteOutlinedIcon from "@mui/icons-material/ContentPasteOutlined";
 import { useAuthContext } from "src/auth/useAuthContext";
 // components
 import { useSnackbar } from "src/components/snackbar";
+import {
+  isOk,
+  notifyOk,
+  notifyFailure,
+  failureMessage,
+} from "src/utils/apiResult";
 // page kit
 import {
   PageHeader,
@@ -163,16 +169,26 @@ const DetailOfIds = () => {
           token
         );
 
-        if (updateResponse?.status === 200) {
-          enqueueSnackbar("Successfully sent to API!", { variant: "success" });
+        // Item 1b: this reported "Successfully sent to API!" on the transport
+        // status alone, so a reprocess the backend refused looked like one it
+        // accepted. This is the screen's whole purpose, so it has to read `code`.
+        if (isOk(updateResponse)) {
+          notifyOk(
+            enqueueSnackbar,
+            updateResponse,
+            "Successfully sent to API!"
+          );
           setOutcome({
             kind: "sent",
             message: "Successfully sent to API!",
             ids: clientRefIds,
           });
         } else {
-          enqueueSnackbar("Failed to update status.", { variant: "error" });
-          setOutcome({ kind: "error", message: "Failed to update status." });
+          notifyFailure(enqueueSnackbar, updateResponse);
+          setOutcome({
+            kind: "error",
+            message: failureMessage(updateResponse),
+          });
         }
       } else {
         enqueueSnackbar("Failed to validate IDs", { variant: "error" });
@@ -391,7 +407,10 @@ function ResultPanel({
         p: 2.25,
         borderRadius: 2,
         border: `1px solid ${alpha(accent, 0.35)}`,
-        backgroundColor: alpha(accent, theme.palette.mode === "light" ? 0.07 : 0.14),
+        backgroundColor: alpha(
+          accent,
+          theme.palette.mode === "light" ? 0.07 : 0.14
+        ),
       }}
     >
       <Stack direction="row" spacing={1.5} alignItems="flex-start">

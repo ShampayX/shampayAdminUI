@@ -5,6 +5,8 @@ import CustomPagination from "src/components/CustomFunction/CustomPagination";
 
 import ApiDataLoading from "src/components/CustomFunction/ApiDataLoading";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure } from "src/utils/apiResult";
+import { useSnackbar } from "src/components/snackbar";
 
 // Hoisted so the loading skeleton and the real table share one definition.
 const BBPS_PRODUCT_COLUMNS = [
@@ -22,6 +24,7 @@ const BBPS_PRODUCT_COLUMNS = [
 ];
 
 function EditBBPSproducts({ categoryData }: any) {
+  const { enqueueSnackbar } = useSnackbar();
   const { Api } = useAuthContext();
   const [currentPage, setCurrentPage] = React.useState(1);
   const [txnCount, setTxnCount] = React.useState(0);
@@ -73,14 +76,14 @@ function EditBBPSproducts({ categoryData }: any) {
     };
     Api("product/bbpsProductList", "POST", body, token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setTableData(Response.data.data);
-            setTxnCount(Response.data.totalCount);
-            setTimeout(() => {
-              setIsLoading(false);
-            }, 500);
-          }
+        if (isOk(Response)) {
+          setTableData(Response.data.data);
+          setTxnCount(Response.data.totalCount);
+          setTimeout(() => {
+            setIsLoading(false);
+          }, 500);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -101,14 +104,14 @@ function EditBBPSproducts({ categoryData }: any) {
     +val.length >= 3
       ? Api("product/bbpsProductList", "POST", body, token).then(
           (Response: any) => {
-            if (Response?.status == 200) {
-              if (Response.data.code == 200) {
-                setTableData(Response.data.data);
-                setTxnCount(Response.data.totalCount);
-                setTimeout(() => {
-                  setIsLoading(false);
-                }, 500);
-              }
+            if (isOk(Response)) {
+              setTableData(Response.data.data);
+              setTxnCount(Response.data.totalCount);
+              setTimeout(() => {
+                setIsLoading(false);
+              }, 500);
+            } else {
+              notifyFailure(enqueueSnackbar, Response);
             }
           }
         )

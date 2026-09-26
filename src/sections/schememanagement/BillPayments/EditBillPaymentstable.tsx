@@ -23,6 +23,7 @@ import { TableHeadCustom } from "../../../components/table";
 import { useSnackbar } from "../../../components/snackbar";
 import CircularProgress from "@mui/material/CircularProgress";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 type RowProps = {
   _id: string;
   agentCommissionType: string;
@@ -93,13 +94,11 @@ export default function EditBillPaymentstable({
       const token = localStorage.getItem("token");
       Api(`scheme/edit_subscheme`, "POST", body, token).then(
         (Response: any) => {
-          if (Response?.status == 200) {
-            if (Response.data.code == 200) {
-              setEdit(false);
-              enqueueSnackbar("Scheme update Successfull !");
-            } else {
-              enqueueSnackbar(Response.data.message);
-            }
+          if (isOk(Response)) {
+            setEdit(false);
+            enqueueSnackbar("Scheme update Successfull !");
+          } else {
+            notifyFailure(enqueueSnackbar, Response);
           }
         }
       );

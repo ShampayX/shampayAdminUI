@@ -14,6 +14,7 @@ import TransferVendorSwitch from "./TransferVendorSwitch";
 import PayoutPayments from "./PayoutPayments";
 import MobileUPI from "./MobileUPI";
 import PennyVerification from "./PennyVerification";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 // ----------------------------------------------------------------------
 
 export const CategoryContext = createContext(null);
@@ -33,11 +34,11 @@ export default function ServicesVenderSwitch() {
     setIsLoading(true);
     let token = localStorage.getItem("token");
     Api(`category/get_CategoryList`, "GET", "", token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setCategoryList(Response.data.data);
-          setSuperCurrentTab(Response.data.data[0]?.category_name);
-        }
+      if (isOk(Response)) {
+        setCategoryList(Response.data.data);
+        setSuperCurrentTab(Response.data.data[0]?.category_name);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
       setIsLoading(false);
     });
@@ -57,46 +58,46 @@ export default function ServicesVenderSwitch() {
           description="The platform has no service categories, so there is nothing to route."
         />
       ) : (
-      <Box>
-        <KitTabs
-          value={superCurrentTab}
-          onChange={(event, newValue) => setSuperCurrentTab(newValue)}
-        >
-          {categoryList.map((tab: any) => (
-            <Tab
-              key={tab._id}
-              label={tab.category_name}
-              value={tab.category_name}
-            />
-          ))}
-        </KitTabs>
-        {categoryList.map(
-          (tab: any) =>
-            tab.category_name == superCurrentTab && (
-              <CategoryContext.Provider value={tab}>
-                <Box key={tab.category_name}>
-                  {tab.category_name.toLowerCase() == "recharges" ? (
-                    <RechargeVendorSwitch categoryId={tab._id} />
-                  ) : superCurrentTab.toLowerCase() == "dmt2" ? (
-                    <DMT2VendorSwitch />
-                  ) : superCurrentTab.toLowerCase() == "money transfer" ? (
-                    <MoneyTransferVendorSwitch />
-                  ) : superCurrentTab.toLowerCase() == "transfer" ? (
-                    <TransferVendorSwitch />
-                  ) : superCurrentTab.toLowerCase() == "kyc" ? (
-                    <PartnerBilling />
-                  ) : superCurrentTab.toLowerCase() == "payout payments" ? (
-                    <PayoutPayments />
-                  ) : superCurrentTab == "MOBILE UPI" ? (
-                    <MobileUPI />
-                  ) : superCurrentTab == "PENNY VERIFICATION" ? (
-                    <PennyVerification />
-                  ) : null}
-                </Box>
-              </CategoryContext.Provider>
-            )
-        )}
-      </Box>
+        <Box>
+          <KitTabs
+            value={superCurrentTab}
+            onChange={(event, newValue) => setSuperCurrentTab(newValue)}
+          >
+            {categoryList.map((tab: any) => (
+              <Tab
+                key={tab._id}
+                label={tab.category_name}
+                value={tab.category_name}
+              />
+            ))}
+          </KitTabs>
+          {categoryList.map(
+            (tab: any) =>
+              tab.category_name == superCurrentTab && (
+                <CategoryContext.Provider value={tab}>
+                  <Box key={tab.category_name}>
+                    {tab.category_name.toLowerCase() == "recharges" ? (
+                      <RechargeVendorSwitch categoryId={tab._id} />
+                    ) : superCurrentTab.toLowerCase() == "dmt2" ? (
+                      <DMT2VendorSwitch />
+                    ) : superCurrentTab.toLowerCase() == "money transfer" ? (
+                      <MoneyTransferVendorSwitch />
+                    ) : superCurrentTab.toLowerCase() == "transfer" ? (
+                      <TransferVendorSwitch />
+                    ) : superCurrentTab.toLowerCase() == "kyc" ? (
+                      <PartnerBilling />
+                    ) : superCurrentTab.toLowerCase() == "payout payments" ? (
+                      <PayoutPayments />
+                    ) : superCurrentTab == "MOBILE UPI" ? (
+                      <MobileUPI />
+                    ) : superCurrentTab == "PENNY VERIFICATION" ? (
+                      <PennyVerification />
+                    ) : null}
+                  </Box>
+                </CategoryContext.Provider>
+              )
+          )}
+        </Box>
       )}
     </>
   );

@@ -27,6 +27,7 @@ import FormProvider, {
 } from "src/components/hook-form";
 import React from "react";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 // import { Label } from '@mui/icons-material';
 
@@ -139,11 +140,10 @@ export default function Faqmanagement() {
       questionId: questionDetail._id,
     };
     Api(`category/delete_Questions`, "POST", body, "").then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          handleClose4();
-        } else {
-        }
+      if (isOk(Response)) {
+        handleClose4();
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -160,24 +160,22 @@ export default function Faqmanagement() {
       ],
     };
     Api(`category/edit_Questions`, "POST", body, "").then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          handleClose3();
-        } else {
-        }
+      if (isOk(Response)) {
+        handleClose3();
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
 
   const getFaqCategory = () => {
     Api(`category/get_FaqCategoryList`, "GET", "", "").then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setCategory(Response.data.data);
-          setSelectCategory(Response.data.data[0]?._id);
-          setQuestion(Response.data.data[0]?.qna);
-        } else {
-        }
+      if (isOk(Response)) {
+        setCategory(Response.data.data);
+        setSelectCategory(Response.data.data[0]?._id);
+        setQuestion(Response.data.data[0]?.qna);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -187,12 +185,11 @@ export default function Faqmanagement() {
       faqcategory_name: faqCategory,
     };
     Api(`category/add_FaqCategory`, "POST", body, "").then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          handleClose();
-          setFaqCategory("");
-        } else {
-        }
+      if (isOk(Response)) {
+        handleClose();
+        setFaqCategory("");
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -203,12 +200,11 @@ export default function Faqmanagement() {
       faqcategory_name: faqCategory,
     };
     Api(`category/edit_FaqCategory`, "POST", body, "").then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          handleClose();
-          setFaqCategory("");
-        } else {
-        }
+      if (isOk(Response)) {
+        handleClose();
+        setFaqCategory("");
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -224,12 +220,11 @@ export default function Faqmanagement() {
       ],
     };
     Api(`category/add_Questions`, "POST", body, "").then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          handleClose2();
-          enqueueSnackbar(Response.data.message);
-        } else {
-        }
+      if (isOk(Response)) {
+        handleClose2();
+        enqueueSnackbar(Response.data.message);
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };

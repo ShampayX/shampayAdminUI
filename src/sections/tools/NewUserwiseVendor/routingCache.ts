@@ -5,9 +5,13 @@
 // WHY THIS EXISTS
 //
 // `product/getUserVendorSwitch` takes exactly one userId + one productId, so a
-// service with N products costs N requests. There is no batch endpoint, and
-// inventing one is not something the frontend can do - see
-// BACKEND_PERFORMANCE_ISSUES.md, issue C.
+// service with N products costs N requests.
+//
+// **There is a batch endpoint now** (Stage 3): `POST product/getUserVendorSwitches`
+// takes `{ userId, productIds[] }` and resolves the lot in two database round
+// trips. `prefetchRouting` below calls it once and seeds the same cache the
+// per-product path reads, so the existing loop turns into N cache hits and the
+// machinery below stays as the fallback for anything the batch did not cover.
 //
 // What the frontend CAN do is stop making the same request twice and stop
 // firing all N at once:
@@ -25,10 +29,18 @@
 // unmount/remount that happens every time the user or service selector changes.
 // ----------------------------------------------------------------------
 
-type ApiFn = (url: string, method: string, body: any, token: any) => Promise<any>;
+type ApiFn = (
+  url: string,
+  method: string,
+  body: any,
+  token: any
+) => Promise<any>;
 
 /** Per-service reference data. Keyed by category id. */
-const referenceCache = new Map<string, { catalogue: any[]; products: any[] }>();
+const referenceCache = new Map<
+  string,
+  { catalogue: any[]; products: any[]; warnings: string[] }
+>();
 
 /** Per user+product routing payload. Keyed by `userId|productId`. */
 const routingCache = new Map<string, any>();
@@ -76,7 +88,7 @@ export async function getServiceReference(
   Api: ApiFn,
   categoryId: string,
   vendorListEndpoint: string
-): Promise<{ catalogue: any[]; products: any[] }> {
+): Promise<{ catalogue: any[]; products: any[]; warnings: string[] }> {
   const cached = referenceCache.get(categoryId);
   if (cached) return cached;
 
@@ -103,11 +115,19 @@ export async function getServiceReference(
         ? productsRes.data.data || []
         : [];
 
-    const value = { catalogue, products };
+    // Item 3b: the vendor dropdown endpoints report what they could not
+    // resolve. Carried through the cache so the caller can say "1 vendor not
+    // configured" instead of showing a silently short list.
+    const warnings: string[] = Array.isArray(listRes?.data?.warnings)
+      ? listRes.data.warnings
+      : [];
+
+    const value = { catalogue, products, warnings };
 
     /* Only cache a genuine answer. Caching an empty list because the request
        failed would make the failure permanent for the session. */
-    if (catalogue.length || products.length) referenceCache.set(categoryId, value);
+    if (catalogue.length || products.length)
+      referenceCache.set(categoryId, value);
 
     return value;
   })();
@@ -121,6 +141,62 @@ export async function getServiceReference(
 }
 
 /** Current routing for one user + product, cached and de-duplicated. */
+/** The batch endpoint's cap on `productIds` - the backend answers 400 above this. */
+const MAX_BATCH_PRODUCT_IDS = 200;
+
+/**
+ * Stage 3: resolve routing for many products in one request and seed the cache.
+ *
+ * `POST product/getUserVendorSwitches` -> `{ success, message, data }` where
+ * `data` is keyed by productId and a product with no routing configured is
+ * present with the value `null`. Note the envelope is `success`, NOT `code`.
+ *
+ * Best-effort by design: anything this does not manage to cache simply falls
+ * through to the per-product `getRouting` below, so a failure here costs speed
+ * and nothing else.
+ */
+export async function prefetchRouting(
+  Api: ApiFn,
+  userId: string,
+  productIds: string[]
+): Promise<void> {
+  const wanted = Array.from(
+    new Set(productIds.filter(Boolean).map(String))
+  ).filter((id) => !routingCache.has(routingKey(userId, id)));
+
+  if (!userId || wanted.length === 0) return;
+
+  const token = localStorage.getItem("token");
+
+  for (let i = 0; i < wanted.length; i += MAX_BATCH_PRODUCT_IDS) {
+    const chunk = wanted.slice(i, i + MAX_BATCH_PRODUCT_IDS);
+    try {
+      const res: any = await Api(
+        "product/getUserVendorSwitches",
+        "POST",
+        { userId, productIds: chunk },
+        token
+      );
+
+      const ok =
+        res?.status === 200 &&
+        (res.data?.success === true || Number(res.data?.code) === 200);
+      if (!ok || !res.data?.data) continue;
+
+      const map = res.data.data;
+      for (const pid of chunk) {
+        // `null` is a real answer - "no routing configured" - and caching it
+        // stops the per-product path asking again for the same nothing.
+        if (Object.prototype.hasOwnProperty.call(map, pid)) {
+          routingCache.set(routingKey(userId, pid), map[pid]);
+        }
+      }
+    } catch {
+      /* Speed only. The per-product path still works. */
+    }
+  }
+}
+
 export async function getRouting(
   Api: ApiFn,
   userId: string,

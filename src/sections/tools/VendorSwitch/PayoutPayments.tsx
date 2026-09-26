@@ -4,6 +4,9 @@ import PayoutComponet from "./PayoutComponet";
 import { EmptyState, LoadingState } from "src/components/page-kit";
 import AltRouteOutlinedIcon from "@mui/icons-material/AltRouteOutlined";
 import { CategoryContext } from "./ServicesVenderSwitch";
+import VendorWarnings, {
+  vendorWarningsOf,
+} from "src/components/VendorWarnings";
 
 // ----------------------------------------------------------------------
 // Vendor Switch > Payout Payments.
@@ -23,6 +26,7 @@ export default function PayoutPayments() {
   const [isLoading, setIsLoading] = useState(false);
   const [productId, setProductId] = useState<any>([]);
   const [vendorList, setVendorList] = useState([]);
+  const [vendorWarnings, setVendorWarnings] = useState<string[]>([]);
   const [refreshTrigger, setRefreshTrigger] = useState(false);
 
   useEffect(() => {
@@ -51,6 +55,9 @@ export default function PayoutPayments() {
       (Response: any) => {
         if (Response?.status == 200 && Response.data.code == 200) {
           setVendorList(Response.data.data);
+          // Item 3b: an empty dropdown used to be indistinguishable from a
+          // broken one. `warnings` sits beside `data`, not inside it.
+          setVendorWarnings(vendorWarningsOf(Response));
         }
         setIsLoading(false);
       }
@@ -76,6 +83,7 @@ export default function PayoutPayments() {
 
   return (
     <>
+      <VendorWarnings warnings={vendorWarnings} />
       {productId?.map((item: any) => (
         <PayoutComponet
           key={item._id}

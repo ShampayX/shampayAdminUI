@@ -70,7 +70,6 @@ export default function Header({ onOpenNav, isCollapsed = false }: Props) {
   const [Castler, setCastler] = useState<string>("");
   const [allUserBalance, setAllUserBalance] = useState<{
     total_main_wallet_amount?: number;
-    total_aeps_wallet_amount?: number;
   }>({});
 
   const { themeLayout } = useSettingsContext();
@@ -385,12 +384,9 @@ export default function Header({ onOpenNav, isCollapsed = false }: Props) {
             icon={<AccountBalanceWalletOutlinedIcon />}
             tone={theme.palette.primary.main}
           />
-          <WalletChip
-            label="AEPS Wallet"
-            value={allUserBalance.total_aeps_wallet_amount || 0}
-            icon={<SavingsOutlinedIcon />}
-            tone={theme.palette.warning.main}
-          />
+          {/* The AEPS wallet chip was removed - the AEPS wallet is not
+              surfaced anywhere in this console. The endpoint still returns
+              total_aeps_wallet_amount; nothing reads it. */}
 
           <Tooltip title="Refresh wallet balances">
             <IconButton

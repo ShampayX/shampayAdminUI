@@ -66,6 +66,7 @@ import PendingActionsOutlinedIcon from "@mui/icons-material/PendingActionsOutlin
 import UploadFileOutlinedIcon from "@mui/icons-material/UploadFileOutlined";
 import FileDownloadOutlinedIcon from "@mui/icons-material/FileDownloadOutlined";
 import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
+import { isOk, notifyOk, notifyFailure } from "src/utils/apiResult";
 
 const TABLE_HEAD = [
   { id: "Date", label: "Date", align: "left" },
@@ -350,14 +351,10 @@ function BBPSmanagement() {
   const BBPSdata = () => {
     Api("bbpsManagement/offline_transactions", "GET", "", token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setTableData(Response.data.data);
-          } else {
-            enqueueSnackbar(Response.data.message);
-          }
+        if (isOk(Response)) {
+          setTableData(Response.data.data);
         } else {
-          enqueueSnackbar("Failed");
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -384,19 +381,14 @@ function BBPSmanagement() {
       body,
       token
     ).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          enqueueSnackbar(Response.data.message);
-          BBPSdata();
-          handleClose();
-        } else {
-          enqueueSnackbar(Response.data.message);
-        }
-        setIsUploadLoading(false);
+      if (isOk(Response)) {
+        notifyOk(enqueueSnackbar, Response, "Offline transactions updated.");
+        BBPSdata();
+        handleClose();
       } else {
-        setIsUploadLoading(false);
-        enqueueSnackbar("Failed");
+        notifyFailure(enqueueSnackbar, Response);
       }
+      setIsUploadLoading(false);
     });
   };
 
@@ -517,7 +509,6 @@ function BBPSmanagement() {
           boxShadow: "none",
         }}
       >
-
         <TableContainer
           sx={{ position: "relative", overflow: "unset", mb: 10 }}
         >

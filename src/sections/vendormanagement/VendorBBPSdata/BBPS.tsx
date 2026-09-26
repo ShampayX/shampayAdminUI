@@ -22,6 +22,7 @@ import { TableHeadCustom } from "src/components/table";
 import { fDateTime } from "src/utils/formatTime";
 import { LoadingButton } from "@mui/lab";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 // import VendorMoneyTransferTable from './VendorMoneyTransferDataTable';
 
 // ----------------------------------------------------------------------
@@ -63,14 +64,10 @@ export default function BBPS() {
   const getBBPSslots = () => {
     let token = localStorage.getItem("token");
     Api(`vendor/show_bbps_slots`, "GET", "", token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setBBPSslot(Response.data.data);
-        } else {
-          enqueueSnackbar(Response.data.message);
-        }
+      if (isOk(Response)) {
+        setBBPSslot(Response.data.data);
       } else {
-        enqueueSnackbar("Failed");
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
@@ -89,16 +86,12 @@ export default function BBPS() {
         body,
         token
       ).then((Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            reset(defaultValues);
-            setBBPSslot(Response.data.data);
-            enqueueSnackbar(Response.data.message);
-          } else {
-            enqueueSnackbar(Response.data.message);
-          }
+        if (isOk(Response)) {
+          reset(defaultValues);
+          setBBPSslot(Response.data.data);
+          enqueueSnackbar(Response.data.message);
         } else {
-          enqueueSnackbar("Failed");
+          notifyFailure(enqueueSnackbar, Response);
         }
       });
     } catch (err) {

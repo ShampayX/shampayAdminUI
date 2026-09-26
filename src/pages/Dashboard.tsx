@@ -38,6 +38,7 @@ import {
   CircularProgress,
   LinearProgress,
 } from "@mui/material";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 type FormValuesProps = {
   startDate: Date | null;
@@ -198,88 +199,76 @@ function Dashboard() {
     };
     Api(`dashboard/getTransaction`, "POST", body, token).then(
       (Response: any) => {
-        if (Response.status == 200) {
-          if (Response.data.code == 200) {
-            setStatusCount(Response.data.data);
-            setDashboardData([
-              {
-                label: "Success",
-                totalPercentage:
-                  Response.data.data.status.success?.percentage || 0,
-                count: Response.data.data.status.success?.totalCount || 0,
-                amount: Response.data.data.status.success?.totalAmount || 0,
-                color: [
-                  theme.palette.success.light,
-                  theme.palette.success.main,
-                ],
-              },
-              {
-                label: "Pending",
-                totalPercentage:
-                  Response.data.data.status.pending?.percentage || 0,
-                count: Response.data.data.status.pending?.totalCount || 0,
-                amount: Response.data.data.status.pending?.totalAmount || 0,
-                color: [
-                  theme.palette.warning.light,
-                  theme.palette.warning.main,
-                ],
-              },
-              {
-                label: "Failed",
-                totalPercentage:
-                  Response.data.data.status.failed?.percentage || 0,
-                count: Response.data.data.status.failed?.totalCount || 0,
-                amount: Response.data.data.status.failed?.totalAmount || 0,
-                color: [theme.palette.error.light, theme.palette.error.main],
-              },
-              {
-                label: "Hold",
-                totalPercentage:
-                  Response.data.data.status.hold?.percentage || 0,
-                count: Response.data.data.status.hold?.totalCount || 0,
-                amount: Response.data.data.status.hold?.totalAmount || 0,
-                color: [
-                  theme.palette.warning.lighter,
-                  theme.palette.warning.lighter,
-                ],
-              },
-              {
-                label: "In Process",
-                totalPercentage:
-                  Response.data.data.status.in_process?.percentage || 0,
-                count: Response.data.data.status.in_process?.totalCount || 0,
-                amount: Response.data.data.status.in_process?.totalAmount || 0,
-                color: [
-                  theme.palette.warning.light,
-                  theme.palette.warning.light,
-                ],
-              },
-              {
-                label: "Initiated",
-                totalPercentage:
-                  Response.data.data.status.initiated?.percentage || 0,
-                count: Response.data.data.status.initiated?.totalCount || 0,
-                amount: Response.data.data.status.initiated?.totalAmount || 0,
-                color: [theme.palette.warning.main, theme.palette.warning.main],
-              },
-              {
-                label: "Queued",
-                totalPercentage:
-                  Response.data.data.status.queued?.percentage || 0,
-                count: Response.data.data.status.queued?.totalCount || 0,
-                amount: Response.data.data.status.queued?.totalAmount || 0,
-                color: [theme.palette.warning.dark, theme.palette.warning.dark],
-              },
-            ]);
-            const categoryData: CategoryProps[] = [];
-            for (let x in Response.data.data.category) {
-              Response.data.data.category[x].totalAmount &&
-                categoryData.push(Response.data.data.category[x]);
-            }
-            setCategoryData(categoryData);
-          } else {
-            enqueueSnackbar(Response.data.message);
+        if (isOk(Response)) {
+          setStatusCount(Response.data.data);
+          setDashboardData([
+            {
+              label: "Success",
+              totalPercentage:
+                Response.data.data.status.success?.percentage || 0,
+              count: Response.data.data.status.success?.totalCount || 0,
+              amount: Response.data.data.status.success?.totalAmount || 0,
+              color: [theme.palette.success.light, theme.palette.success.main],
+            },
+            {
+              label: "Pending",
+              totalPercentage:
+                Response.data.data.status.pending?.percentage || 0,
+              count: Response.data.data.status.pending?.totalCount || 0,
+              amount: Response.data.data.status.pending?.totalAmount || 0,
+              color: [theme.palette.warning.light, theme.palette.warning.main],
+            },
+            {
+              label: "Failed",
+              totalPercentage:
+                Response.data.data.status.failed?.percentage || 0,
+              count: Response.data.data.status.failed?.totalCount || 0,
+              amount: Response.data.data.status.failed?.totalAmount || 0,
+              color: [theme.palette.error.light, theme.palette.error.main],
+            },
+            {
+              label: "Hold",
+              totalPercentage: Response.data.data.status.hold?.percentage || 0,
+              count: Response.data.data.status.hold?.totalCount || 0,
+              amount: Response.data.data.status.hold?.totalAmount || 0,
+              color: [
+                theme.palette.warning.lighter,
+                theme.palette.warning.lighter,
+              ],
+            },
+            {
+              label: "In Process",
+              totalPercentage:
+                Response.data.data.status.in_process?.percentage || 0,
+              count: Response.data.data.status.in_process?.totalCount || 0,
+              amount: Response.data.data.status.in_process?.totalAmount || 0,
+              color: [theme.palette.warning.light, theme.palette.warning.light],
+            },
+            {
+              label: "Initiated",
+              totalPercentage:
+                Response.data.data.status.initiated?.percentage || 0,
+              count: Response.data.data.status.initiated?.totalCount || 0,
+              amount: Response.data.data.status.initiated?.totalAmount || 0,
+              color: [theme.palette.warning.main, theme.palette.warning.main],
+            },
+            {
+              label: "Queued",
+              totalPercentage:
+                Response.data.data.status.queued?.percentage || 0,
+              count: Response.data.data.status.queued?.totalCount || 0,
+              amount: Response.data.data.status.queued?.totalAmount || 0,
+              color: [theme.palette.warning.dark, theme.palette.warning.dark],
+            },
+          ]);
+          const categoryData: CategoryProps[] = [];
+          for (let x in Response.data.data.category) {
+            Response.data.data.category[x].totalAmount &&
+              categoryData.push(Response.data.data.category[x]);
           }
+          setCategoryData(categoryData);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
         setIsLoading(false);
       }

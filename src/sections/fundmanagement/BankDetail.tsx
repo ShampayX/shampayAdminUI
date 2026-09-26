@@ -45,6 +45,7 @@ import RadioGroup from "@mui/material/RadioGroup";
 
 import Scrollbar from "src/components/scrollbar/Scrollbar";
 import { useAuthContext } from "src/auth/useAuthContext";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 // ----------------------------------------------------------------------
 type FormValuesProps = {
@@ -312,14 +313,12 @@ export default function BankDetail() {
 
     Api("admin/fundManagement/add_bank", "POST", body, token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            handleClose();
-            getBankList();
-            reset(defaultValues);
-          } else {
-            enqueueSnackbar(Response.data.message);
-          }
+        if (isOk(Response)) {
+          handleClose();
+          getBankList();
+          reset(defaultValues);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -340,11 +339,10 @@ export default function BankDetail() {
     let token = localStorage.getItem("token");
     Api(`admin/fundManagement/get_banks` + "", "GET", "", token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setBankList(Response.data.data);
-          } else {
-          }
+        if (isOk(Response)) {
+          setBankList(Response.data.data);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -355,12 +353,11 @@ export default function BankDetail() {
 
     Api(`admin/fundManagement/get_bank/` + _id, "GET", "", token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setSelectBank(Response.data.data);
-            setShowDetail(true);
-          } else {
-          }
+        if (isOk(Response)) {
+          setSelectBank(Response.data.data);
+          setShowDetail(true);
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -371,12 +368,11 @@ export default function BankDetail() {
 
     Api(`admin/fundManagement/get_modes/`, "GET", "", token).then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            setModeList(Response.data.data);
-            setModeListBank(Response.data.data.map((item: any) => item));
-          } else {
-          }
+        if (isOk(Response)) {
+          setModeList(Response.data.data);
+          setModeListBank(Response.data.data.map((item: any) => item));
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );
@@ -390,12 +386,11 @@ export default function BankDetail() {
     };
     Api("admin/fundManagement/add_mode", "POST", body, "").then(
       (Response: any) => {
-        if (Response?.status == 200) {
-          if (Response.data.code == 200) {
-            handleCloseMode();
-            getModesList();
-          } else {
-          }
+        if (isOk(Response)) {
+          handleCloseMode();
+          getModesList();
+        } else {
+          notifyFailure(enqueueSnackbar, Response);
         }
       }
     );

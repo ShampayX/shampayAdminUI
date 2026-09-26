@@ -46,6 +46,7 @@ import MapLoanSchemeRow, {
   LoanMappingRow,
   roleLabel,
 } from "./MapLoanSchemeTable";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 
 // ----------------------------------------------------------------------
 // Plans > Loan Plan Mapping (internally "map loan scheme").
@@ -207,18 +208,14 @@ export default function MapLoanScheme() {
       };
       await Api(`admin/loan/map_scheme`, "POST", body, token).then(
         (Response: any) => {
-          if (Response?.status == 200) {
-            if (Response.data.code == 200) {
-              handleClose();
-              enqueueSnackbar(Response.data.message);
-              /* The old code never refreshed, so a new mapping stayed hidden
-                 until a manual reload. */
-              mapSchemeList(currentPage, pageSize);
-            } else {
-              enqueueSnackbar(Response.data.message);
-            }
+          if (isOk(Response)) {
+            handleClose();
+            enqueueSnackbar(Response.data.message);
+            /* The old code never refreshed, so a new mapping stayed hidden
+               until a manual reload. */
+            mapSchemeList(currentPage, pageSize);
           } else {
-            enqueueSnackbar("Failed");
+            notifyFailure(enqueueSnackbar, Response);
           }
         }
       );
@@ -459,9 +456,7 @@ export default function MapLoanScheme() {
                       </MenuItem>
                     ))
                   ) : (
-                    <MenuItem disabled>
-                      Select an account type first
-                    </MenuItem>
+                    <MenuItem disabled>Select an account type first</MenuItem>
                   )}
                 </RHFSelect>
 

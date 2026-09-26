@@ -28,6 +28,7 @@ import MotionModal from "src/components/animate/MotionModal";
 import { Icon } from "@iconify/react";
 import ApiDataLoading from "src/components/CustomFunction/ApiDataLoading";
 import { SchemeDetail } from "../ManageScheme/EditScheme";
+import { isOk, notifyFailure } from "src/utils/apiResult";
 // ----------------------------------------------------------------------
 
 type FormValuesProps = {
@@ -115,68 +116,68 @@ export default function EditMATM() {
     let miniStatementArr: any = [];
     let balanceInqArr: any = [];
     Api(`vendor/showAEPSSlots`, "GET", "", token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          Response.data.data?.slotsData?.vendor_slots.map(
-            (item: any, index: any) => {
-              widthdrawArr.push({
-                minSlab: item.minSlab,
-                maxSlab: item.maxSlab,
-                productid: Response.data.data?.productData.filter(
-                  (row: any) =>
-                    row?.productName?.toLowerCase() ==
-                    item.TransactionType?.toLowerCase()
-                )[0]._id,
-                TransactionType: item.TransactionType,
-                BankMaxPayout: item.BankMaxPayout,
-                AEPSVendorPayout: item.AEPSVendorPayout,
-                commissionType: "",
-                agentCommission: "",
-                distributorCommission: "",
-                masterDistributorCommission: "",
-                apiUserCommission: "",
-                TDS: "",
-                GST: "",
-                _id: index,
-              });
-            }
-          );
-          miniStatementArr.push({
-            minSlab: "",
-            maxSlab: "",
-            productid: Response.data.data?.productData.filter(
-              (row: any) => row?.productName?.toLowerCase() == "mini statement"
-            )[0]._id,
-            TransactionType: "Mini Statement",
-            commissionType: "",
-            agentCommission: "",
-            distributorCommission: "",
-            masterDistributorCommission: "",
-            apiUserCommission: "",
-            TDS: "",
-            GST: "",
-            _id: "Mini Statement",
-          });
-          balanceInqArr.push({
-            minSlab: "",
-            maxSlab: "",
-            productid: Response.data.data?.productData.filter(
-              (row: any) => row?.productName?.toLowerCase() == "balance inquiry"
-            )[0]._id,
-            TransactionType: "Balance Inquiry",
-            commissionType: "",
-            agentCommission: "",
-            distributorCommission: "",
-            masterDistributorCommission: "",
-            apiUserCommission: "",
-            TDS: "",
-            GST: "",
-            _id: "Balance Inquiry",
-          });
-          let arry = widthdrawArr.concat(miniStatementArr, balanceInqArr);
-          setUpdatedSlots(arry);
-          handleOpen();
-        }
+      if (isOk(Response)) {
+        Response.data.data?.slotsData?.vendor_slots.map(
+          (item: any, index: any) => {
+            widthdrawArr.push({
+              minSlab: item.minSlab,
+              maxSlab: item.maxSlab,
+              productid: Response.data.data?.productData.filter(
+                (row: any) =>
+                  row?.productName?.toLowerCase() ==
+                  item.TransactionType?.toLowerCase()
+              )[0]._id,
+              TransactionType: item.TransactionType,
+              BankMaxPayout: item.BankMaxPayout,
+              AEPSVendorPayout: item.AEPSVendorPayout,
+              commissionType: "",
+              agentCommission: "",
+              distributorCommission: "",
+              masterDistributorCommission: "",
+              apiUserCommission: "",
+              TDS: "",
+              GST: "",
+              _id: index,
+            });
+          }
+        );
+        miniStatementArr.push({
+          minSlab: "",
+          maxSlab: "",
+          productid: Response.data.data?.productData.filter(
+            (row: any) => row?.productName?.toLowerCase() == "mini statement"
+          )[0]._id,
+          TransactionType: "Mini Statement",
+          commissionType: "",
+          agentCommission: "",
+          distributorCommission: "",
+          masterDistributorCommission: "",
+          apiUserCommission: "",
+          TDS: "",
+          GST: "",
+          _id: "Mini Statement",
+        });
+        balanceInqArr.push({
+          minSlab: "",
+          maxSlab: "",
+          productid: Response.data.data?.productData.filter(
+            (row: any) => row?.productName?.toLowerCase() == "balance inquiry"
+          )[0]._id,
+          TransactionType: "Balance Inquiry",
+          commissionType: "",
+          agentCommission: "",
+          distributorCommission: "",
+          masterDistributorCommission: "",
+          apiUserCommission: "",
+          TDS: "",
+          GST: "",
+          _id: "Balance Inquiry",
+        });
+        let arry = widthdrawArr.concat(miniStatementArr, balanceInqArr);
+        setUpdatedSlots(arry);
+        handleOpen();
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
       setIsFetchSlots(false);
     });
@@ -220,19 +221,24 @@ export default function EditMATM() {
     const body = data;
     let token = localStorage.getItem("token");
     Api(`scheme/edit_subscheme`, "POST", body, token).then((Response: any) => {
-      if (Response?.status == 200) {
-        if (Response.data.code == 200) {
-          setEdit(false);
-          enqueueSnackbar("Scheme update Successfull !");
-        } else {
-          enqueueSnackbar(Response.data.message);
-        }
+      if (isOk(Response)) {
+        setEdit(false);
+        enqueueSnackbar("Scheme update Successfull !");
+      } else {
+        notifyFailure(enqueueSnackbar, Response);
       }
     });
   };
 
   if (isLoading) {
-    return <ApiDataLoading variant="table" columns={tableLabels} rows={6} minWidth={720} />;
+    return (
+      <ApiDataLoading
+        variant="table"
+        columns={tableLabels}
+        rows={6}
+        minWidth={720}
+      />
+    );
   }
 
   return (
