@@ -26,20 +26,48 @@ AWS.config.update({
 // exactly as before - the row only changes how it looks.
 // ----------------------------------------------------------------------
 
+// The report Lambda saves each file in its own bucket and stores the full url,
+// e.g. https://dev.assets.shampayx.com.s3.ap-south-1.amazonaws.com/<file>.
+// Read the bucket and the key from that url rather than from
+// REACT_APP_AWS_BUCKET_NAME: that setting names the portal's own asset bucket
+// (avatars, documents), which is not where reports are written, so downloads
+// were signed against the wrong bucket. The env bucket is only the fallback for
+// a url that is not an S3 url.
+export const reportLocation = (reportUrl: string) => {
+  try {
+    const { hostname, pathname } = new URL(reportUrl);
+    const path = pathname.replace(/^\/+/, "");
+    // Virtual-hosted style: <bucket>.s3.<region>.amazonaws.com/<key>
+    const hosted = hostname.match(/^(.+)\.s3[.-]([a-z0-9-]+\.)?amazonaws\.com$/);
+    if (hosted) {
+      return { Bucket: hosted[1], Key: decodeURIComponent(path) };
+    }
+    // Path style: s3.<region>.amazonaws.com/<bucket>/<key>
+    if (/^s3[.-]([a-z0-9-]+\.)?amazonaws\.com$/.test(hostname)) {
+      const [bucket, ...rest] = path.split("/");
+      return { Bucket: bucket, Key: decodeURIComponent(rest.join("/")) };
+    }
+  } catch (e) {
+    // Not a url at all: fall through to the old behaviour.
+  }
+  return {
+    Bucket: process.env.REACT_APP_AWS_BUCKET_NAME,
+    Key: decodeURIComponent(String(reportUrl || "").split("/").splice(3, 3).join("/")),
+  };
+};
+
 export default function HistoricalDataTable({ row }: any) {
   const download = (val: string) => {
+    if (!val) return;
     const s3 = new AWS.S3();
-    // The report Lambda stores the url with the file name percent-encoded (its
-    // ISO dates contain ':'), so decode it back to the real S3 key. Decoding an
-    // older, unencoded url is a no-op.
-    const params = {
-      Bucket: process.env.REACT_APP_AWS_BUCKET_NAME,
-      Key: val !== "" && decodeURIComponent(val?.split("/").splice(3, 3).join("/")),
-      Expires: 600,
-    };
+    const params = { ...reportLocation(val), Expires: 600 };
 
     s3.getSignedUrl("getObject", params, (err, url) => {
-      window.open(url, "_blanck");
+      if (err || !url) {
+        console.error("Could not sign the report download", err);
+        return;
+      }
+      window.open(url, "_blank");
     });
   };
 
